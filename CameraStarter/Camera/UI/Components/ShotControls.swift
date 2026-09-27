@@ -130,7 +130,7 @@ struct ShotControls: View {
                 .animation(.easeInOut(duration: 0.3), value: rotationAngle)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Switch to \(selectedMode == .photo ? "Video" : "Photo") mode")
+        .accessibilityLabel(selectedMode == .photo ? "Switch to Video mode" : "Switch to Photo mode")
         .accessibilityHint("Double tap to switch camera mode")
     }
 

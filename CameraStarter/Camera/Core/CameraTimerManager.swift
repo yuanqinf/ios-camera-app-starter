@@ -18,10 +18,10 @@ enum TimerDuration: Int, CaseIterable {
     /// Display text for the timer button
     var displayText: String {
         switch self {
-        case .off: return "camera.timer.off".localized
-        case .three: return "camera.timer.3s".localized
-        case .five: return "camera.timer.5s".localized
-        case .ten: return "camera.timer.10s".localized
+        case .off: return String(localized: "Off")
+        case .three: return String(localized: "3s", comment: "Self-timer duration: 3 seconds")
+        case .five: return String(localized: "5s", comment: "Self-timer duration: 5 seconds")
+        case .ten: return String(localized: "10s", comment: "Self-timer duration: 10 seconds")
         }
     }
 

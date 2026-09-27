@@ -41,11 +41,11 @@ enum FlashMode: String, CaseIterable {
     var accessibilityLabel: String {
         switch self {
         case .off:
-            return "Off"
+            return String(localized: "Off")
         case .on:
-            return "On"
+            return String(localized: "On")
         case .auto:
-            return "Auto"
+            return String(localized: "Auto", comment: "Flash mode")
         }
     }
 }

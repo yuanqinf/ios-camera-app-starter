@@ -152,7 +152,7 @@ private struct ZoomButton: View {
         .buttonStyle(.plain)
         .contentShape(Rectangle())
         .accessibilityLabel(accessibilityText)
-        .accessibilityHint(isActive ? "a11y.zoom.selected".localized : "a11y.zoom.tap.hint".localized)
+        .accessibilityHint(isActive ? "Currently selected" : "Tap to change zoom level")
     }
 
     // Display text (add "×" when active)
@@ -186,7 +186,7 @@ private struct ZoomButton: View {
         } else {
             zoomValue = String(format: "%.1f", preset)
         }
-        return String(format: "a11y.zoom.level".localized, zoomValue)
+        return String(localized: "\(zoomValue)x zoom", comment: "Zoom preset, as in \"2x zoom\"")
     }
 }
 

@@ -57,6 +57,7 @@ it, and start from a camera that already works.
 | Other colors, animations, haptics | `DesignSystem/Theme.swift` |
 | App icon | `AppIcon` in `Assets.xcassets` |
 | Permission prompts | The `NS…UsageDescription` keys in the target's build settings |
+| Wording, and other languages | `Localizable.xcstrings`, a String Catalog keyed by the English text |
 
 ## How it fits together
 

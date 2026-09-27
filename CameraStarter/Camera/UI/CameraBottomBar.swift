@@ -88,9 +88,9 @@ struct CameraBottomBar: View {
                             } else {
                                 selectedCameraMode = .photo
                                 toastMessage = ToastMessage(
-                                    message: "permission.microphone.required".localized,
+                                    message: String(localized: "Microphone access is required to record video"),
                                     type: .error,
-                                    action: ToastAction(title: "common.settings".localized) {
+                                    action: ToastAction(title: String(localized: "Settings")) {
                                         openAppSettings()
                                     }
                                 )
@@ -101,9 +101,9 @@ struct CameraBottomBar: View {
                 case .denied, .restricted:
                     selectedCameraMode = .photo
                     toastMessage = ToastMessage(
-                        message: "permission.microphone.required".localized,
+                        message: String(localized: "Microphone access is required to record video"),
                         type: .error,
-                        action: ToastAction(title: "common.settings".localized) {
+                        action: ToastAction(title: String(localized: "Settings")) {
                             openAppSettings()
                         }
                     )
@@ -167,7 +167,7 @@ struct CameraBottomBar: View {
             .transition(.scale.combined(with: .opacity))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("camera.photos".localized)
+        .accessibilityLabel("Photos")
         .accessibilityHint("Opens the Photos app")
         .onChange(of: model.thumbnail) { oldImage, newImage in
             withAnimation(AppAnimation.thumbnailSpring) {

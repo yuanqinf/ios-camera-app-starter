@@ -1,0 +1,96 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%@x zoom" : {
+      "comment" : "Zoom preset, as in \"2x zoom\""
+    },
+    "%lld" : {
+      "comment" : "Self-timer countdown number",
+      "shouldTranslate" : false
+    },
+    "%llds" : {
+      "comment" : "Self-timer duration on the timer button, in seconds"
+    },
+    "10s" : {
+      "comment" : "Self-timer duration: 10 seconds"
+    },
+    "3s" : {
+      "comment" : "Self-timer duration: 3 seconds"
+    },
+    "5s" : {
+      "comment" : "Self-timer duration: 5 seconds"
+    },
+    "Add location to your photos" : {},
+    "Allow camera access to take photos and videos." : {},
+    "Auto" : {
+      "comment" : "Flash mode"
+    },
+    "Back camera" : {},
+    "Camera" : {},
+    "Camera configuration failed. Please restart the app and try again." : {},
+    "Camera device is unavailable. Please make sure no other app is using the camera." : {},
+    "Camera Error" : {},
+    "Camera permission is required to take photos. Please allow camera access in Settings." : {},
+    "Cancel Timer" : {},
+    "Capture failed: %@" : {},
+    "Continue" : {},
+    "Coordinate conversion failed" : {},
+    "Currently selected" : {},
+    "Double tap to capture a photo" : {},
+    "Double tap to change flash mode" : {},
+    "Double tap to start recording video" : {},
+    "Double tap to stop recording" : {},
+    "Double tap to switch camera mode" : {},
+    "Double tap to toggle flashlight" : {},
+    "Double tap to toggle Live Photo" : {},
+    "Double tap to toggle macro mode for close-up photos" : {},
+    "Flash" : {},
+    "Focus failed: %@" : {},
+    "Front camera" : {},
+    "If the problem persists, please contact support." : {},
+    "Live Photo" : {},
+    "Location" : {},
+    "Macro Mode" : {},
+    "Macro mode failed: %@" : {},
+    "Microphone" : {},
+    "Microphone access is required to record video" : {},
+    "Off" : {},
+    "OK" : {},
+    "On" : {},
+    "Opens the Photos app" : {},
+    "Optional" : {},
+    "Photos" : {},
+    "Please allow camera access in Settings." : {},
+    "Please make sure no other app is using the camera." : {},
+    "Please press the capture button again." : {},
+    "Please restart the app and try again." : {},
+    "Please tap another area on the screen to refocus." : {},
+    "Please tap another area on the screen." : {},
+    "Please try adjusting the distance between the camera and the subject." : {},
+    "Record video with sound" : {},
+    "Settings" : {},
+    "Start Recording" : {},
+    "Stop Recording" : {},
+    "Switch Camera" : {},
+    "Switch to Photo mode" : {},
+    "Switch to Video mode" : {},
+    "Take Photo" : {},
+    "Take photos and videos" : {},
+    "Tap to change timer duration" : {},
+    "Tap to change zoom level" : {},
+    "Tap to focus, pinch to zoom" : {},
+    "Tap to toggle between wide and zoomed view" : {},
+    "Timer %@" : {
+      "comment" : "VoiceOver label for the self-timer button, with its duration"
+    },
+    "Timer Off" : {},
+    "Torch" : {},
+    "Unable to restart camera: %@" : {},
+    "Unable to start camera: %@" : {},
+    "Unknown error: %@" : {},
+    "View Finder" : {},
+    "Zoom in" : {},
+    "Zoom out" : {}
+  },
+  "version" : "1.0"
+}

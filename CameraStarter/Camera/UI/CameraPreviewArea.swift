@@ -159,7 +159,7 @@ struct CameraPreviewArea: View {
             .accessibilityElement()
             .accessibilityLabel("View Finder")
             .accessibilityAddTraits([.isImage])
-            .accessibilityHint("a11y.viewfinder.hint".localized)
+            .accessibilityHint("Tap to focus, pinch to zoom")
         }
     }
 

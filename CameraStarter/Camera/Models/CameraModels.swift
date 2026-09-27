@@ -25,46 +25,46 @@ enum CameraError: Error, LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .permissionDenied:
-            return "Camera permission is required to take photos. Please allow camera access in Settings."
+            return String(localized: "Camera permission is required to take photos. Please allow camera access in Settings.")
         case .deviceNotAvailable:
-            return "Camera device is unavailable. Please make sure no other app is using the camera."
+            return String(localized: "Camera device is unavailable. Please make sure no other app is using the camera.")
         case .sessionConfigurationFailed:
-            return "Camera configuration failed. Please restart the app and try again."
+            return String(localized: "Camera configuration failed. Please restart the app and try again.")
         case .startFailed(let message):
-            return "Unable to start camera: \(message)"
+            return String(localized: "Unable to start camera: \(message)")
         case .restartFailed(let message):
-            return "Unable to restart camera: \(message)"
+            return String(localized: "Unable to restart camera: \(message)")
         case .focusFailed(let message):
-            return "Focus failed: \(message)"
+            return String(localized: "Focus failed: \(message)")
         case .captureFailed(let message):
-            return "Capture failed: \(message)"
+            return String(localized: "Capture failed: \(message)")
         case .macroModeFailed(let message):
-            return "Macro mode failed: \(message)"
+            return String(localized: "Macro mode failed: \(message)")
         case .coordinateConversionFailed:
-            return "Coordinate conversion failed"
+            return String(localized: "Coordinate conversion failed")
         case .unknown(let message):
-            return "Unknown error: \(message)"
+            return String(localized: "Unknown error: \(message)")
         }
     }
 
     var recoverySuggestion: String? {
         switch self {
         case .permissionDenied:
-            return "Please allow camera access in Settings."
+            return String(localized: "Please allow camera access in Settings.")
         case .deviceNotAvailable:
-            return "Please make sure no other app is using the camera."
+            return String(localized: "Please make sure no other app is using the camera.")
         case .sessionConfigurationFailed, .startFailed, .restartFailed:
-            return "Please restart the app and try again."
+            return String(localized: "Please restart the app and try again.")
         case .focusFailed:
-            return "Please tap another area on the screen to refocus."
+            return String(localized: "Please tap another area on the screen to refocus.")
         case .captureFailed:
-            return "Please press the capture button again."
+            return String(localized: "Please press the capture button again.")
         case .macroModeFailed:
-            return "Please try adjusting the distance between the camera and the subject."
+            return String(localized: "Please try adjusting the distance between the camera and the subject.")
         case .coordinateConversionFailed:
-            return "Please tap another area on the screen."
+            return String(localized: "Please tap another area on the screen.")
         case .unknown:
-            return "If the problem persists, please contact support."
+            return String(localized: "If the problem persists, please contact support.")
         }
     }
 

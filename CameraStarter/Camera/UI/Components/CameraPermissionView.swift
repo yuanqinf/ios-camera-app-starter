@@ -97,7 +97,7 @@ struct CameraPermissionView: View {
 
     private var textSection: some View {
         VStack(spacing: 8) {
-            Text("camera.permission.body".localized)
+            Text("Allow camera access to take photos and videos.")
                 .font(.title3)
                 .foregroundColor(.appPrimaryText)
                 .multilineTextAlignment(.center)
@@ -112,8 +112,8 @@ struct CameraPermissionView: View {
             CameraPermissionCard(
                 icon: "camera.fill",
                 tint: .gray,
-                title: "camera.permission.camera.title".localized,
-                description: "camera.permission.camera.description".localized,
+                title: String(localized: "Camera"),
+                description: String(localized: "Take photos and videos"),
                 isOptional: false,
                 status: cameraStatus.toCardStatus,
                 onTap: { handleCameraTap() }
@@ -123,8 +123,8 @@ struct CameraPermissionView: View {
             CameraPermissionCard(
                 icon: "location.fill",
                 tint: .blue,
-                title: "camera.permission.location.title".localized,
-                description: "camera.permission.location.description".localized,
+                title: String(localized: "Location"),
+                description: String(localized: "Add location to your photos"),
                 isOptional: true,
                 status: locationStatus.toCardStatus,
                 onTap: { handleLocationTap() }
@@ -134,8 +134,8 @@ struct CameraPermissionView: View {
             CameraPermissionCard(
                 icon: "mic.fill",
                 tint: .orange,
-                title: "camera.permission.microphone.title".localized,
-                description: "camera.permission.microphone.description".localized,
+                title: String(localized: "Microphone"),
+                description: String(localized: "Record video with sound"),
                 isOptional: true,
                 status: microphoneStatus.toCardStatus,
                 onTap: { handleMicrophoneTap() }
@@ -149,7 +149,7 @@ struct CameraPermissionView: View {
         Button {
             onComplete()
         } label: {
-            Text("permission.continue".localized)
+            Text("Continue")
                 .font(.headline)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 6)
@@ -287,7 +287,7 @@ private struct CameraPermissionCard: View {
                             .foregroundColor(.appPrimaryText)
 
                         if isOptional {
-                            Text("permission.optional".localized)
+                            Text("Optional")
                                 .font(.caption.weight(.medium))
                                 .foregroundColor(.appSecondaryText)
                                 .padding(.horizontal, 6)

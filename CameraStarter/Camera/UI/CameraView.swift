@@ -272,8 +272,8 @@ struct CameraView: View {
             }
             .toolbar(.hidden, for: .navigationBar)
             .statusBar(hidden: selectedCameraMode == .video)  // Hide in video mode for immersive experience
-            .alert("camera.error.title".localized, isPresented: $showErrorAlert, presenting: cameraError) { error in
-                Button("common.ok".localized) {
+            .alert("Camera Error", isPresented: $showErrorAlert, presenting: cameraError) { error in
+                Button("OK") {
                     showErrorAlert = false
                 }
             } message: { error in
