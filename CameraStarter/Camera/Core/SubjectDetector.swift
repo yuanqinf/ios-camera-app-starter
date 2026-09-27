@@ -2,8 +2,8 @@
 //  SubjectDetector.swift
 //  CameraStarter
 //
-//  Finds what the camera should focus on. Each full pass looks for animals
-//  with Vision's animal recognizer and falls back to the most salient region
+//  Finds what the camera should focus on. Each full pass looks for faces,
+//  people and animals with Vision, and falls back to the most salient region
 //  when there are none; between passes, VNTrackObjectRequest follows the
 //  subjects already found. Drives auto-focus and subject tracking.
 //
@@ -52,19 +52,36 @@ actor DetectionThrottler {
     }
 }
 
+/// What a detected subject is.
+nonisolated enum SubjectKind: Equatable, Sendable, CustomStringConvertible {
+    case face
+    /// A person whose face wasn't found: turned away, or too far off.
+    case person
+    /// An animal, with Vision's label for it ("Cat" or "Dog").
+    case animal(String)
+
+    var description: String {
+        switch self {
+        case .face: "face"
+        case .person: "person"
+        case .animal(let label): label.lowercased()
+        }
+    }
+}
+
 /// Subject detection result
-struct SubjectDetectionResult: Equatable, Sendable, Identifiable {
+nonisolated struct SubjectDetectionResult: Equatable, Sendable, Identifiable {
     let id: UUID  // Stable unique identifier (for UI tracking)
     let boundingBox: CGRect  // Subject bounding box (normalized coordinates 0-1)
     let confidence: Float    // Confidence score
-    let animalType: String   // "cat" or "dog"
+    let kind: SubjectKind
 
     /// Convenience initializer (auto-generates ID)
-    init(boundingBox: CGRect, confidence: Float, animalType: String, id: UUID = UUID()) {
+    init(boundingBox: CGRect, confidence: Float, kind: SubjectKind, id: UUID = UUID()) {
         self.id = id
         self.boundingBox = boundingBox
         self.confidence = confidence
-        self.animalType = animalType
+        self.kind = kind
     }
 
 }
@@ -91,8 +108,24 @@ private struct TrackedSubjectState {
     var trackRequest: VNTrackObjectRequest
     var lastTrackingConfidence: Float
     // Cached metadata from last full detection
-    var cachedAnimalType: String
+    var cachedKind: SubjectKind
     var cachedConfidence: Float
+}
+
+/// A subject from a full detection pass, with the observation to start its
+/// tracker from.
+nonisolated private struct DetectedSubject {
+    let observation: VNDetectedObjectObservation
+    let result: SubjectDetectionResult
+
+    init(_ observation: VNDetectedObjectObservation, kind: SubjectKind) {
+        self.observation = observation
+        self.result = SubjectDetectionResult(
+            boundingBox: observation.boundingBox,
+            confidence: observation.confidence,
+            kind: kind
+        )
+    }
 }
 
 /// Vision pipeline (isolates Vision requests and throttling logic)
@@ -105,6 +138,14 @@ private actor VisionPipeline {
     // Vision requests
     private let saliencyRequest: VNGenerateAttentionBasedSaliencyImageRequest = {
         let request = VNGenerateAttentionBasedSaliencyImageRequest()
+        return request
+    }()
+
+    private let faceRequest = VNDetectFaceRectanglesRequest()
+
+    private let humanRequest: VNDetectHumanRectanglesRequest = {
+        let request = VNDetectHumanRectanglesRequest()
+        request.upperBodyOnly = false  // Whole people, including ones seen from a distance
         return request
     }()
 
@@ -156,7 +197,7 @@ private actor VisionPipeline {
         let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
 
         do {
-            try handler.perform([saliencyRequest, animalRequest])
+            try handler.perform([saliencyRequest, faceRequest, humanRequest, animalRequest])
             modelsReady = true
         } catch {
             logger.warning("⚠️ Failed to preload Vision models: \(error.localizedDescription)")
@@ -227,7 +268,7 @@ private actor VisionPipeline {
         return false
     }
 
-    /// Full ML detection (expensive: VNRecognizeAnimalsRequest, then saliency when no animals)
+    /// Full ML detection (expensive: faces, people and animals, then saliency when none)
     private func runFullDetection(
         pixelBufferBox: PixelBufferBox,
         orientation: CGImagePropertyOrientation,
@@ -242,13 +283,13 @@ private actor VisionPipeline {
         )
 
         do {
-            // 1) Run subject recognition
-            try imageRequestHandler.perform([animalRequest])
-            let animalResults = animalRequest.results ?? []
+            // 1) Run subject recognition, all kinds in one pass over the frame
+            try imageRequestHandler.perform([faceRequest, humanRequest, animalRequest])
+            let detectedSubjects = collectDetectedSubjects()
 
             // 2) Only run saliency when no subjects detected, as focus fallback
             var salientObjects: [VNDetectedObjectObservation] = []
-            if animalResults.isEmpty {
+            if detectedSubjects.isEmpty {
                 try imageRequestHandler.perform([saliencyRequest])
                 if let saliencyResult = saliencyRequest.results?.first,
                    let objects = saliencyResult.salientObjects {
@@ -256,25 +297,10 @@ private actor VisionPipeline {
                 }
             }
 
-            // Build subject detections
-            var allSubjectDetections: [SubjectDetectionResult] = []
-
-            if !animalResults.isEmpty {
-                for animal in animalResults {
-                    guard animal.confidence > minSubjectConfidenceThreshold else { continue }
-
-                    let animalType = animal.labels.first?.identifier ?? "unknown"
-
-                    await allSubjectDetections.append(SubjectDetectionResult(
-                        boundingBox: animal.boundingBox,
-                        confidence: animal.confidence,
-                        animalType: animalType
-                    ))
-                }
-            }
+            let allSubjectDetections = detectedSubjects.map(\.result)
 
             // Initialize trackers from fresh detection results
-            await initializeTrackers(from: animalResults, subjectDetections: allSubjectDetections)
+            await initializeTrackers(from: detectedSubjects)
 
             // Select best subject for focus
             let subjectDetectionResult = selectBestSubjectForFocus(from: allSubjectDetections)
@@ -359,10 +385,10 @@ private actor VisionPipeline {
                 // Blend confidence: cached detection confidence × tracking confidence
                 let blendedConfidence = subject.cachedConfidence * Float(updatedObservation.confidence)
 
-                await allSubjectDetections.append(SubjectDetectionResult(
+                allSubjectDetections.append(SubjectDetectionResult(
                     boundingBox: updatedObservation.boundingBox,
                     confidence: blendedConfidence,
-                    animalType: subject.cachedAnimalType,
+                    kind: subject.cachedKind,
                     id: subject.id
                 ))
             } catch {
@@ -403,33 +429,54 @@ private actor VisionPipeline {
         )
     }
 
+    /// The subjects in the frame the requests just ran on, above the
+    /// confidence threshold.
+    private func collectDetectedSubjects() -> [DetectedSubject] {
+        let isConfident = { (observation: VNDetectedObjectObservation) in
+            observation.confidence > self.minSubjectConfidenceThreshold
+        }
+
+        let faces = (faceRequest.results ?? []).filter(isConfident)
+
+        // A person whose face was found is already covered by that face,
+        // which is the better thing to focus on.
+        let people = (humanRequest.results ?? []).filter(isConfident).filter { person in
+            !faces.contains { face in
+                person.boundingBox.contains(CGPoint(x: face.boundingBox.midX, y: face.boundingBox.midY))
+            }
+        }
+
+        let animals = (animalRequest.results ?? []).filter(isConfident)
+
+        return faces.map { DetectedSubject($0, kind: .face) }
+            + people.map { DetectedSubject($0, kind: .person) }
+            + animals.map { DetectedSubject($0, kind: .animal($0.labels.first?.identifier ?? "Animal")) }
+    }
+
     /// Initialize trackers from fresh detection results
-    private func initializeTrackers(from animalResults: [VNRecognizedObjectObservation], subjectDetections: [SubjectDetectionResult]) async {
+    private func initializeTrackers(from detectedSubjects: [DetectedSubject]) async {
         // Reset tracking state
         trackedSubjects = []
         framesSinceLastDetection = 0
         // Recreate sequence handler to prevent unbounded memory growth
         sequenceHandler = VNSequenceRequestHandler()
 
-        for (index, animal) in animalResults.enumerated() {
-            guard animal.confidence > minSubjectConfidenceThreshold else { continue }
-            guard index < subjectDetections.count else { break }
-
-            let subject = subjectDetections[index]
+        for subject in detectedSubjects {
+            let observation = subject.observation
 
             // Create initial track request on MainActor (Vision request types are MainActor-isolated)
             let trackRequest: VNTrackObjectRequest = await MainActor.run {
-                let req = VNTrackObjectRequest(detectedObjectObservation: animal)
+                let req = VNTrackObjectRequest(detectedObjectObservation: observation)
                 req.trackingLevel = .fast
                 return req
             }
 
             trackedSubjects.append(TrackedSubjectState(
-                id: subject.id,
+                id: subject.result.id,
                 trackRequest: trackRequest,
-                lastTrackingConfidence: Float(animal.confidence),
-                cachedAnimalType: subject.animalType,
-                cachedConfidence: animal.confidence
+                lastTrackingConfidence: observation.confidence,
+                cachedKind: subject.result.kind,
+                cachedConfidence: observation.confidence
             ))
         }
     }
@@ -651,7 +698,7 @@ class SubjectDetector: NSObject {
                     let stableSubject = SubjectDetectionResult(
                         boundingBox: newSubject.boundingBox,
                         confidence: newSubject.confidence,
-                        animalType: newSubject.animalType,
+                        kind: newSubject.kind,
                         id: subjectID
                     )
                     stableAllSubjects.append(stableSubject)
@@ -660,7 +707,7 @@ class SubjectDetector: NSObject {
                     let otherSubject = SubjectDetectionResult(
                         boundingBox: subject.boundingBox,
                         confidence: subject.confidence,
-                        animalType: subject.animalType,
+                        kind: subject.kind,
                         id: subjectID
                     )
                     stableAllSubjects.append(otherSubject)

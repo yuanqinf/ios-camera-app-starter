@@ -43,16 +43,16 @@ struct TrackedSubject: Equatable {
     let boundingBox: CGRect           // Current bounding box (normalized 0-1)
     let predictedBox: CGRect          // Kalman-predicted next position
     let confidence: Float
-    let animalType: String
+    let kind: SubjectKind
     let trackingDuration: TimeInterval // How long we've been tracking
     let velocity: CGPoint             // Normalized velocity (units/frame) for interpolation
 
-    init(id: UUID, boundingBox: CGRect, predictedBox: CGRect, confidence: Float, animalType: String, trackingDuration: TimeInterval, velocity: CGPoint = .zero) {
+    init(id: UUID, boundingBox: CGRect, predictedBox: CGRect, confidence: Float, kind: SubjectKind, trackingDuration: TimeInterval, velocity: CGPoint = .zero) {
         self.id = id
         self.boundingBox = boundingBox
         self.predictedBox = predictedBox
         self.confidence = confidence
-        self.animalType = animalType
+        self.kind = kind
         self.trackingDuration = trackingDuration
         self.velocity = velocity
     }
@@ -203,7 +203,7 @@ final class SubjectLockService {
         let now = Date()
         isManualLock = true
         startTracking(subject: subject, at: now, manual: true)
-        logger.info("Manual lock on subject: \(subject.animalType)")
+        logger.info("Manual lock on subject: \(subject.kind.description)")
     }
 
     /// Release current lock and return to auto mode
@@ -318,12 +318,12 @@ final class SubjectLockService {
             boundingBox: box,
             predictedBox: box,
             confidence: subject.confidence,
-            animalType: subject.animalType,
+            kind: subject.kind,
             trackingDuration: 0
         )
 
         transitionTo(.detecting)
-        logger.debug("Started tracking subject: \(subject.animalType), manual: \(manual)")
+        logger.debug("Started tracking subject: \(subject.kind.description), manual: \(manual)")
     }
 
     private func updateTracking(with subject: SubjectDetectionResult, at time: Date) {
@@ -378,7 +378,7 @@ final class SubjectLockService {
             boundingBox: smoothedBox,  // Use smoothed position instead of raw
             predictedBox: predictedBox,
             confidence: subject.confidence,
-            animalType: subject.animalType,
+            kind: subject.kind,
             trackingDuration: duration,
             velocity: kalmanFilter.currentVelocity()
         )
@@ -472,7 +472,7 @@ final class SubjectLockService {
                     boundingBox: subject.boundingBox,
                     predictedBox: predictedBox,
                     confidence: subject.confidence * 0.9,  // Decay confidence
-                    animalType: subject.animalType,
+                    kind: subject.kind,
                     trackingDuration: subject.trackingDuration
                 )
             }
