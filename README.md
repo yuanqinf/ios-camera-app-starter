@@ -61,8 +61,9 @@ it, and start from a camera that already works.
 ## How it fits together
 
 - `CameraManager` owns the `AVCaptureSession`: configuration, capture,
-  recording, zoom, focus and macro. It hands finished photos and videos out
-  through async streams.
+  recording, zoom, focus and macro, split by job across the
+  `CameraManager+…` files. It hands finished photos and videos out through
+  async streams.
 - `CameraModel` reads those streams, saves each capture, and keeps the
   thumbnail on the newest one.
 - `CaptureAlbum` finds or creates the app's album and saves into it.
