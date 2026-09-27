@@ -131,12 +131,12 @@ struct CameraTopControlsBar: View {
         } label: {
             Image(systemName: isTorchEnabled ? "bolt.fill" : "bolt.slash.fill")
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(isTorchEnabled ? .yellow : .white)
+                .foregroundColor(isTorchEnabled ? .appCameraActive : .white)
                 .contentTransition(.symbolEffect(.replace))
                 .frame(width: 32, height: 32)
                 .background(
                     Circle()
-                        .fill(isTorchEnabled ? Color.yellow.opacity(0.25) : .black.opacity(0.7))
+                        .fill(isTorchEnabled ? Color.appCameraActive.opacity(0.25) : .black.opacity(0.7))
                 )
                 .rotationEffect(rotationAngle)
                 .animation(.easeInOut(duration: 0.3), value: rotationAngle)
@@ -155,7 +155,7 @@ struct CameraTopControlsBar: View {
         } label: {
             Image(systemName: isLivePhotoEnabled ? "livephoto" : "livephoto.slash")
                 .font(.system(size: 20, weight: .medium))
-                .foregroundColor(isLivePhotoEnabled ? .yellow : .white.opacity(0.7))
+                .foregroundColor(isLivePhotoEnabled ? .appCameraActive : .white.opacity(0.7))
                 .frame(width: 32, height: 32)
                 .rotationEffect(rotationAngle)
                 .animation(.easeInOut(duration: 0.3), value: rotationAngle)
@@ -183,7 +183,7 @@ struct CameraTopControlsBar: View {
 
                             Text("\(timerDuration.rawValue)s")
                                 .font(.system(size: 11, weight: .bold))
-                                .foregroundColor(.yellow)
+                                .foregroundColor(.appCameraActive)
                         }
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
@@ -216,9 +216,9 @@ struct CameraTopControlsBar: View {
         case .off:
             return .white
         case .on:
-            return .yellow
+            return .appCameraActive
         case .auto:
-            return .yellow
+            return .appCameraActive
         }
     }
 
@@ -227,7 +227,7 @@ struct CameraTopControlsBar: View {
         case .off:
             return .black.opacity(0.7)
         case .on:
-            return .yellow.opacity(0.25)
+            return .appCameraActive.opacity(0.25)
         case .auto:
             return .black.opacity(0.7)
         }

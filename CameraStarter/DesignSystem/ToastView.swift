@@ -66,7 +66,7 @@ struct ToastMessage: Equatable {
         case .success:
             return .appSuccess
         case .info:
-            return .appPrimaryColor
+            return .accentColor
         case .warning:
             return .orange
         case .error:
@@ -89,28 +89,21 @@ struct ToastView: View {
                 .foregroundColor(toast.iconColor)
 
             Text(toast.message)
-                .font(.system(size: 14, weight: .medium))
+                .font(.subheadline.weight(.medium))
                 .foregroundColor(.appPrimaryText)
                 .multilineTextAlignment(.leading)
                 .lineLimit(3)
 
             // Action button (if provided)
             if let action = toast.action {
-                Button {
+                Button(action.title) {
                     action.action()
                     onDismiss?()
-                } label: {
-                    Text(action.title)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(
-                            Capsule()
-                                .fill(Color.accentColor)
-                        )
                 }
-                .buttonStyle(.plain)
+                .font(.subheadline.weight(.semibold))
+                .buttonStyle(.borderedProminent)
+                .buttonBorderShape(.capsule)
+                .controlSize(.small)
             }
 
             // Close button (shown when toast persists - has action or showCloseButton)
@@ -128,11 +121,10 @@ struct ToastView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.appCardBackground)
-                .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
-        )
+        // A material, like the system's own banners, so it reads over the
+        // camera preview and over plain backgrounds alike
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .shadow(color: .black.opacity(0.1), radius: 10, y: 4)
         .padding(.horizontal, 20)
         .contentShape(Rectangle())
         .onTapGesture {
@@ -208,9 +200,9 @@ extension View {
 
 #Preview {
     VStack(spacing: 16) {
-        ToastView(toast: ToastMessage(message: "3 photos imported", type: .info))
-        ToastView(toast: ToastMessage(message: "2 photos taken before Buddy's birthday", type: .warning))
-        ToastView(toast: ToastMessage(message: "Import failed", type: .error))
+        ToastView(toast: ToastMessage(message: "Live Photo on", type: .info))
+        ToastView(toast: ToastMessage(message: "Storage is almost full", type: .warning))
+        ToastView(toast: ToastMessage(message: "Couldn't save the photo", type: .error))
         ToastView(
             toast: ToastMessage(
                 message: "Microphone access required",

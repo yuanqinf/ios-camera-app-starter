@@ -205,10 +205,7 @@ struct CameraBottomBar: View {
         } label: {
             ZStack {
                 Circle()
-                    .stroke(
-                        AngularGradient(colors: [.red, .orange, .red], center: .center),
-                        lineWidth: 4
-                    )
+                    .stroke(Color.white, lineWidth: 4)
                     .frame(width: 72, height: 72)
                 Circle()
                     .fill(Color.appDarkGray)

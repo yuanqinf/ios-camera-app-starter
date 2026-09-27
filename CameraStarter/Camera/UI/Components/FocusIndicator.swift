@@ -49,7 +49,7 @@ struct FocusIndicator: View {
     private var indicatorColor: Color {
         switch state {
         case .focusing:
-            return .yellow  // Focusing - yellow
+            return .appCameraActive  // Focusing
         case .locked:
             return .green   // Focus locked - green
         }

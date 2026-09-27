@@ -143,11 +143,11 @@ struct ShotControls: View {
         } label: {
             Image(systemName: "camera.macro")
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(isMacroModeActive ? .yellow : .white.opacity(0.7))
+                .foregroundColor(isMacroModeActive ? .appCameraActive : .white.opacity(0.7))
                 .frame(width: 36, height: 36)
                 .background(
                     Circle()
-                        .fill(isMacroModeActive ? Color.yellow.opacity(0.25) : Color.black.opacity(0.5))
+                        .fill(isMacroModeActive ? Color.appCameraActive.opacity(0.25) : Color.black.opacity(0.5))
                 )
                 .rotationEffect(rotationAngle)
                 .animation(.easeInOut(duration: 0.3), value: rotationAngle)

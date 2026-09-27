@@ -2,7 +2,7 @@
 //  CameraPermissionView.swift
 //  CameraStarter
 //
-//  Camera permission request with card-based UI
+//  Asks for camera, location and microphone access, in the style of Settings
 //
 
 import SwiftUI
@@ -82,27 +82,15 @@ struct CameraPermissionView: View {
 
     // MARK: - Illustration
 
-    /// The same tile the permission rows below use, at hero size, in the
-    /// colors of a permission not yet asked for. Viewfinder rather than
-    /// camera.fill, which the first row already shows.
+    /// A large symbol in the accent color, the way Apple's own welcome
+    /// screens open. Viewfinder rather than camera.fill, which the first row
+    /// already shows.
     private var illustrationSection: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 32, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [.appSecondaryColor, .appPrimaryColor],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .frame(width: 160, height: 160)
-
-            Image(systemName: "camera.viewfinder")
-                .font(.system(size: 72, weight: .semibold))
-                .foregroundColor(.white)
-        }
-        // Decorative: the text under it says what the screen is for.
-        .accessibilityHidden(true)
+        Image(systemName: "camera.viewfinder")
+            .font(.system(size: 88, weight: .regular))
+            .foregroundStyle(.tint)
+            // Decorative: the text under it says what the screen is for.
+            .accessibilityHidden(true)
     }
 
     // MARK: - Text Section
@@ -110,10 +98,9 @@ struct CameraPermissionView: View {
     private var textSection: some View {
         VStack(spacing: 8) {
             Text("camera.permission.body".localized)
-                .font(.system(size: 18))
+                .font(.title3)
                 .foregroundColor(.appPrimaryText)
                 .multilineTextAlignment(.center)
-                .lineSpacing(4)
         }
     }
 
@@ -124,6 +111,7 @@ struct CameraPermissionView: View {
             // Camera (Required)
             CameraPermissionCard(
                 icon: "camera.fill",
+                tint: .gray,
                 title: "camera.permission.camera.title".localized,
                 description: "camera.permission.camera.description".localized,
                 isOptional: false,
@@ -134,6 +122,7 @@ struct CameraPermissionView: View {
             // Location (Optional)
             CameraPermissionCard(
                 icon: "location.fill",
+                tint: .blue,
                 title: "camera.permission.location.title".localized,
                 description: "camera.permission.location.description".localized,
                 isOptional: true,
@@ -144,6 +133,7 @@ struct CameraPermissionView: View {
             // Microphone (Optional)
             CameraPermissionCard(
                 icon: "mic.fill",
+                tint: .orange,
                 title: "camera.permission.microphone.title".localized,
                 description: "camera.permission.microphone.description".localized,
                 isOptional: true,
@@ -159,21 +149,13 @@ struct CameraPermissionView: View {
         Button {
             onComplete()
         } label: {
-            HStack(spacing: 8) {
-                Text("permission.continue".localized)
-                    .font(.system(size: 17, weight: .semibold))
-                Image(systemName: "arrow.right")
-                    .font(.system(size: 15, weight: .semibold))
-            }
-            .foregroundColor(.white)
-            .frame(maxWidth: .infinity)
-            .frame(height: 54)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.appPrimaryColor)
-            )
+            Text("permission.continue".localized)
+                .font(.headline)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 6)
         }
-        .buttonStyle(PressableButtonStyle())
+        .buttonStyle(.borderedProminent)
+        .controlSize(.large)
     }
 
     // MARK: - Permission Logic
@@ -279,6 +261,8 @@ private extension CLAuthorizationStatus {
 
 private struct CameraPermissionCard: View {
     let icon: String
+    /// The icon tile's color, matching the one Settings gives this permission
+    let tint: Color
     let title: String
     let description: String
     let isOptional: Bool
@@ -288,27 +272,23 @@ private struct CameraPermissionCard: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 16) {
-                // Icon with gradient background
-                ZStack {
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(iconGradient)
-                        .frame(width: 40, height: 40)
-
-                    Image(systemName: icon)
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(.white)
-                }
+                // Icon tile, as in Settings
+                Image(systemName: icon)
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundColor(.white)
+                    .frame(width: 36, height: 36)
+                    .background(tint, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
 
                 // Text content
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text(title)
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.headline)
                             .foregroundColor(.appPrimaryText)
 
                         if isOptional {
                             Text("permission.optional".localized)
-                                .font(.system(size: 11, weight: .medium))
+                                .font(.caption.weight(.medium))
                                 .foregroundColor(.appSecondaryText)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
@@ -320,7 +300,7 @@ private struct CameraPermissionCard: View {
                     }
 
                     Text(description)
-                        .font(.system(size: 13))
+                        .font(.subheadline)
                         .foregroundColor(.appSecondaryText)
                         .lineLimit(1)
                 }
@@ -331,35 +311,11 @@ private struct CameraPermissionCard: View {
                 statusIndicator
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .background(cardBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .padding(.vertical, 12)
+            .background(Color.appCardBackground, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(CameraPermissionCardButtonStyle())
         .animation(.easeInOut(duration: 0.2), value: status)
-    }
-
-    private var iconGradient: LinearGradient {
-        switch status {
-        case .authorized:
-            return LinearGradient(
-                colors: [.appSuccess, .appSuccess.opacity(0.8)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        case .denied:
-            return LinearGradient(
-                colors: [.appError, .appError.opacity(0.8)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        case .notDetermined:
-            return LinearGradient(
-                colors: [.appSecondaryColor, .appPrimaryColor],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        }
     }
 
     @ViewBuilder
@@ -378,28 +334,7 @@ private struct CameraPermissionCard: View {
         case .notDetermined:
             Image(systemName: "chevron.right")
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(.appSecondaryText)
-        }
-    }
-
-    private var cardBackground: some View {
-        RoundedRectangle(cornerRadius: 16)
-            .fill(Color.appCardBackground)
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(borderColor, lineWidth: 1)
-            )
-            .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
-    }
-
-    private var borderColor: Color {
-        switch status {
-        case .authorized:
-            return Color.appSuccess.opacity(0.3)
-        case .denied:
-            return Color.appError.opacity(0.3)
-        case .notDetermined:
-            return Color.appDivider
+                .foregroundColor(Color(uiColor: .tertiaryLabel))
         }
     }
 }

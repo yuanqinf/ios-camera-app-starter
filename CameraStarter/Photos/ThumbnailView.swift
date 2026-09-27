@@ -28,7 +28,7 @@ struct ThumbnailView: View {
             } else {
                 Image(systemName: "photo")
                     .font(.system(size: 20))
-                    .foregroundColor(.appPrimaryColor.opacity(0.6))
+                    .foregroundColor(.appSecondaryText)
             }
         }
         .frame(width: 50, height: 50)

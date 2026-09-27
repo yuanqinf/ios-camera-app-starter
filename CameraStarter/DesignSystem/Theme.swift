@@ -20,9 +20,6 @@ enum AppAnimation {
     /// The thumbnail swapping in after a capture.
     static let thumbnailSpring = Animation.spring(response: 0.3, dampingFraction: 0.7)
 
-    /// Button press.
-    static let buttonSpring = Animation.spring(response: 0.3, dampingFraction: 0.6)
-
     /// An image fading in.
     static let imageFade = Animation.easeOut(duration: 0.2)
 
@@ -75,57 +72,37 @@ enum Haptics {
 }
 
 // MARK: - Colors
+//
+// Every color here is one of the system's own, so the app follows light and
+// dark mode and Increase Contrast the way Apple's apps do. The accent is the
+// AccentColor asset (the system blue until you give it a value), which views
+// pick up through `.tint` and `Color.accentColor`.
 
 extension Color {
-    static let appPrimaryColor = Color(hex: 0xEA4335)
-    static let appSecondaryColor = Color(hex: 0xF28B82)
+    /// A screen, and the cards grouped on it, as in Settings.
+    static let appBackground = Color(uiColor: .systemGroupedBackground)
+    static let appCardBackground = Color(uiColor: .secondarySystemGroupedBackground)
 
-    static let appBackground = Color(UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? UIColor(red: 17/255, green: 17/255, blue: 17/255, alpha: 1)
-            : UIColor(red: 249/255, green: 244/255, blue: 239/255, alpha: 1)
-    })
+    /// Fill for a placeholder, like the thumbnail of an empty album.
+    static let appSecondaryBackground = Color(uiColor: .secondarySystemBackground)
 
-    static let appSecondaryBackground = Color(UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? .secondarySystemBackground
-            : UIColor(red: 239/255, green: 236/255, blue: 234/255, alpha: 1)
-    })
+    static let appPrimaryText = Color(uiColor: .label)
+    static let appSecondaryText = Color(uiColor: .secondaryLabel)
+    static let appDivider = Color(uiColor: .separator)
 
-    static var appCardBackground: Color {
-        Color(UIColor { traits in
-            traits.userInterfaceStyle == .dark
-                ? UIColor(white: 0.12, alpha: 1)
-                : UIColor(white: 0.98, alpha: 1)
-        })
-    }
+    static let appSuccess = Color(uiColor: .systemGreen)
+    static let appError = Color(uiColor: .systemRed)
 
-    static let appPrimaryText = Color(UIColor.label)
-    static let appSecondaryText = Color(UIColor.secondaryLabel)
-    static let appDivider = Color(UIColor.separator)
+    /// A camera control that's switched on (flash, torch, Live Photo, macro,
+    /// the selected zoom) and focus in progress. Yellow, as in the Camera app.
+    static let appCameraActive = Color(uiColor: .systemYellow)
 
-    static let appBlack = Color(hex: 0x000000)
-    static let appDarkGray = Color(hex: 0x1C1C1E)
+    /// Behind the camera, in any appearance.
+    static let appBlack = Color.black
 
-    static let appSuccess = Color(hex: 0x34C759)
-    static let appError = Color(hex: 0xFF453A)
-
-    /// A color from a 0xRRGGBB integer.
-    init(hex: Int, opacity: Double = 1.0) {
-        let r = Double((hex >> 16) & 0xFF) / 255.0
-        let g = Double((hex >> 8) & 0xFF) / 255.0
-        let b = Double(hex & 0xFF) / 255.0
-        self.init(.sRGB, red: r, green: g, blue: b, opacity: opacity)
-    }
-}
-
-// MARK: - Button style
-
-struct PressableButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
-            .opacity(configuration.isPressed ? 0.9 : 1.0)
-            .animation(AppAnimation.buttonSpring, value: configuration.isPressed)
-    }
+    /// Controls set on that black: the system's darkest gray, as dark mode
+    /// draws it, whatever the appearance.
+    static let appDarkGray = Color(uiColor: UIColor.systemGray6.resolvedColor(
+        with: UITraitCollection(userInterfaceStyle: .dark)
+    ))
 }

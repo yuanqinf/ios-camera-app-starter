@@ -129,7 +129,7 @@ private struct ZoomButton: View {
             // When active, show text with "×", when not active, show only number
             Text(displayText)
                 .font(.system(size: isActive ? 12 : 11, weight: isActive ? .semibold : .medium))
-                .foregroundColor(isActive ? .yellow : .white.opacity(0.6))
+                .foregroundColor(isActive ? .appCameraActive : .white.opacity(0.6))
                 .rotationEffect(rotationAngle)
                 .animation(.easeInOut(duration: 0.3), value: rotationAngle)
                 .frame(width: buttonSize, height: buttonSize)
