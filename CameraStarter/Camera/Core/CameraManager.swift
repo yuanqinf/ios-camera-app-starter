@@ -204,13 +204,13 @@ final class CameraManager: NSObject {
                 setPortraitMode(enabled: false)
             }
 
-            // ⚠️ Live Photo and Deferred Photo Processing are mutually exclusive
+            // Live Photo and Deferred Photo Processing are mutually exclusive
             // Deferred processing intercepts the photo callback, breaking Live Photo pairing
             sessionQueue.async { [weak self] in
                 guard let self = self, let photoOutput = self.photoOutput else { return }
                 if photoOutput.isAutoDeferredPhotoDeliveryEnabled {
                     photoOutput.isAutoDeferredPhotoDeliveryEnabled = false
-                    self.logger.info("📸 Disabled Deferred Photo Delivery for Live Photo compatibility")
+                    self.logger.info("Disabled Deferred Photo Delivery for Live Photo compatibility")
                 }
             }
 
@@ -226,7 +226,7 @@ final class CameraManager: NSObject {
                 guard let self = self, let photoOutput = self.photoOutput else { return }
                 if photoOutput.isAutoDeferredPhotoDeliverySupported && !photoOutput.isAutoDeferredPhotoDeliveryEnabled {
                     photoOutput.isAutoDeferredPhotoDeliveryEnabled = true
-                    self.logger.info("📸 Re-enabled Deferred Photo Delivery")
+                    self.logger.info("Re-enabled Deferred Photo Delivery")
                 }
             }
 
@@ -257,7 +257,7 @@ final class CameraManager: NSObject {
     let sessionController = SessionController()
     let sessionQueue: DispatchQueue
     let sessionQueueKey = DispatchSpecificKey<Bool>()  // For detecting if on sessionQueue
-    let videoOutputQueue: DispatchQueue  // 🔧 Dedicated video output queue
+    let videoOutputQueue: DispatchQueue  // Dedicated video output queue
 
     // Session-related computed properties (nonisolated access to sessionQueue, centralized shared state management)
     var captureSession: AVCaptureSession { sessionController.captureSession }
@@ -356,7 +356,7 @@ final class CameraManager: NSObject {
         self.sessionQueue = DispatchQueue(label: "\(Log.subsystem).camera.session")
         self.sessionQueue.setSpecific(key: sessionQueueKey, value: true)
 
-        // 🔧 Use main queue as video output queue
+        // Use main queue as video output queue
         // This avoids actor isolation issues since CameraManager and SubjectDetector are both @MainActor
         self.videoOutputQueue = DispatchQueue.main
 
@@ -423,7 +423,7 @@ final class CameraManager: NSObject {
         // Set up subject lock focus callback
         setupSubjectLockCallbacks()
 
-        // 🔧 Monitor Session interruptions and errors (critical fix)
+        // Monitor Session interruptions and errors (critical fix)
         setupSessionObservers()
     }
 

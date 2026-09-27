@@ -57,11 +57,11 @@ extension CameraManager {
     @objc private func sessionWasInterrupted(notification: NSNotification) {
         guard let userInfoValue = notification.userInfo?[AVCaptureSessionInterruptionReasonKey] as? Int,
               let reasonIntegerValue = AVCaptureSession.InterruptionReason(rawValue: userInfoValue) else {
-            logger.warning("⚠️ Session was interrupted (unknown reason)")
+            logger.warning("Session was interrupted (unknown reason)")
             return
         }
 
-        logger.warning("⚠️ Session was interrupted: reason=\(userInfoValue)")
+        logger.warning("Session was interrupted: reason=\(userInfoValue)")
 
         Task { @MainActor in
             switch reasonIntegerValue {
@@ -70,19 +70,19 @@ extension CameraManager {
             case .audioDeviceInUseByAnotherClient:
                 self.logger.info("Audio device in use by another app")
             case .videoDeviceInUseByAnotherClient:
-                self.logger.warning("⚠️ Camera in use by another app - session stopped")
+                self.logger.warning("Camera in use by another app - session stopped")
             case .videoDeviceNotAvailableWithMultipleForegroundApps:
-                self.logger.warning("⚠️ Camera unavailable with multiple apps")
+                self.logger.warning("Camera unavailable with multiple apps")
             case .videoDeviceNotAvailableDueToSystemPressure:
-                self.logger.error("❌ Camera unavailable due to system pressure")
+                self.logger.error("Camera unavailable due to system pressure")
             default:
-                self.logger.warning("⚠️ Session interrupted: unknown reason")
+                self.logger.warning("Session interrupted: unknown reason")
             }
         }
     }
 
     @objc private func sessionInterruptionEnded(notification: NSNotification) {
-        logger.info("✅ Session interruption ended - camera available again")
+        logger.info("Session interruption ended - camera available again")
 
         // After interruption ends, session should auto-recover
         // But we need to verify video output connection is still valid
@@ -92,41 +92,41 @@ extension CameraManager {
 
             // Verify session is actually running
             if !self.captureSession.isRunning {
-                logger.warning("⚠️ Session not running after interruption - attempting restart")
+                logger.warning("Session not running after interruption - attempting restart")
                 try? await self.start()
             }
 
-            // 🔧 Ensure depth data settings weren't reset by system
+            // Ensure depth data settings weren't reset by system
             self.ensureDepthDataEnabled()
         }
     }
 
     @objc private func sessionRuntimeError(notification: NSNotification) {
         guard let error = notification.userInfo?[AVCaptureSessionErrorKey] as? AVError else {
-            logger.error("❌ Session runtime error (unknown)")
+            logger.error("Session runtime error (unknown)")
             return
         }
 
-        logger.error("❌ Session runtime error: \(error.localizedDescription)")
+        logger.error("Session runtime error: \(error.localizedDescription)")
 
         // Decide whether to attempt recovery based on error type
         Task { @MainActor in
             if error.code == .mediaServicesWereReset {
-                logger.info("🔄 Media services reset - attempting to restart session")
+                logger.info("Media services reset - attempting to restart session")
 
                 // Media services reset, need to reconfigure session
                 self.isSessionConfigured = false
 
                 do {
                     try await self.start()
-                    logger.info("✅ Session restarted successfully after media services reset")
+                    logger.info("Session restarted successfully after media services reset")
                 } catch {
-                    logger.error("❌ Failed to restart session: \(error.localizedDescription)")
+                    logger.error("Failed to restart session: \(error.localizedDescription)")
                 }
             } else if error.code == .deviceAlreadyUsedByAnotherSession {
-                logger.error("❌ Device already in use by another session")
+                logger.error("Device already in use by another session")
             } else {
-                logger.error("❌ Unhandled session error: \(error.code.rawValue)")
+                logger.error("Unhandled session error: \(error.code.rawValue)")
             }
         }
     }
@@ -171,9 +171,9 @@ extension CameraManager {
     /// Force reset camera session to clean state
     /// Call this when camera is in an inconsistent state that prevents normal operation
     private func forceResetSession() {
-        logger.warning("🔄 Force resetting camera session...")
+        logger.warning("Force resetting camera session...")
 
-        // 🔧 Preserve current camera mode - will be restored after reset
+        // Preserve current camera mode - will be restored after reset
         let previousMode = cameraMode
 
         // Clear all internal state flags first
@@ -191,7 +191,7 @@ extension CameraManager {
         // Will be used by start() to switch back if needed
         self.pendingModeRestore = previousMode != .photo ? previousMode : nil
 
-        // 🔧 All session operations MUST be on sessionQueue to avoid race conditions
+        // All session operations MUST be on sessionQueue to avoid race conditions
         // Using DispatchQueue.sync to block until complete, but checking if we're already on the queue
         let resetBlock = { [weak self] in
             guard let self = self else { return }
@@ -229,28 +229,28 @@ extension CameraManager {
         photoOutput = nil
         videoOutput = nil
 
-        logger.info("✅ Camera session force reset complete")
+        logger.info("Camera session force reset complete")
     }
 
     /// Start camera
     func start() async throws {
-        // 🔧 Prevent concurrent start calls (e.g., from both onAppear and onChange)
+        // Prevent concurrent start calls (e.g., from both onAppear and onChange)
         guard !isStarting else {
             logger.info("⏳ Camera start already in progress, skipping duplicate call")
             return
         }
 
-        // 🔧 Verify actual session state, not just isRunning flag
+        // Verify actual session state, not just isRunning flag
         // This handles race condition when user quickly backgrounds then foregrounds app
         let actuallyRunning = captureSession.isRunning
 
         if isRunning && actuallyRunning {
-            // 🔧 Clear pending stop flag if start is called while already running
+            // Clear pending stop flag if start is called while already running
             // This handles the race condition: user backgrounds app during capture,
             // then foregrounds before capture completes
             if pendingStopAfterCapture {
                 pendingStopAfterCapture = false
-                logger.info("✅ Cleared pending stop - camera will stay running")
+                logger.info("Cleared pending stop - camera will stay running")
             }
             return
         }
@@ -259,43 +259,43 @@ extension CameraManager {
         isStarting = true
         defer { isStarting = false }
 
-        // 🔧 If isRunning flag is true but session is not actually running,
+        // If isRunning flag is true but session is not actually running,
         // force reset to clean state and proceed with full restart
         if isRunning && !actuallyRunning {
-            logger.warning("⚠️ isRunning=true but session stopped - forcing full reset")
+            logger.warning("isRunning=true but session stopped - forcing full reset")
             forceResetSession()
         }
 
-        // 🔧 If session is still running but isRunning is false (race condition from stop()),
+        // If session is still running but isRunning is false (race condition from stop()),
         // wait briefly for session to stop, then force reset if still running
         if !isRunning && actuallyRunning {
-            logger.warning("⚠️ Session still running but isRunning=false - waiting for stop...")
+            logger.warning("Session still running but isRunning=false - waiting for stop...")
             // Wait briefly for the async stop to complete
             try? await Task.sleep(nanoseconds: 100_000_000)  // 100ms
             if captureSession.isRunning {
-                logger.warning("⚠️ Session still running after wait - forcing reset")
+                logger.warning("Session still running after wait - forcing reset")
                 forceResetSession()
             }
         }
 
-        // 🔧 If session is stuck in unknown state, force reset
+        // If session is stuck in unknown state, force reset
         if !isRunning && isSessionConfigured && !captureSession.isRunning {
             // Session was configured but not running - might be in bad state
-            logger.warning("⚠️ Session configured but not running - forcing reset")
+            logger.warning("Session configured but not running - forcing reset")
             forceResetSession()
         }
 
-        // 🔧 If in video mode but not running, force reset to photo mode
+        // If in video mode but not running, force reset to photo mode
         // This handles the case when app was backgrounded in video mode
         if cameraMode == .video && !captureSession.isRunning {
-            logger.warning("⚠️ In video mode but session not running - forcing reset to photo mode")
+            logger.warning("In video mode but session not running - forcing reset to photo mode")
             forceResetSession()
         }
 
-        // 🔧 If photo output is missing (e.g., removed for video mode), force reset
+        // If photo output is missing (e.g., removed for video mode), force reset
         // This ensures we always have a valid photo output after restart
         if isSessionConfigured && photoOutput == nil {
-            logger.warning("⚠️ Photo output is nil - forcing reset")
+            logger.warning("Photo output is nil - forcing reset")
             forceResetSession()
         }
 
@@ -316,15 +316,15 @@ extension CameraManager {
         state = .running
         isRunning = true
 
-        // 🔧 Ensure depth data settings are enabled (prevent reset after configuration)
+        // Ensure depth data settings are enabled (prevent reset after configuration)
         ensureDepthDataEnabled()
 
-        // 🔧 Reset macro state (clear previous manual disable flags, etc.)
+        // Reset macro state (clear previous manual disable flags, etc.)
         await MainActor.run {
             macroManager.resetState()
         }
 
-        // 🔧 Restart lens position observation (needs re-listening after app restart)
+        // Restart lens position observation (needs re-listening after app restart)
         if let device = sessionController.deviceInput?.device {
             await MainActor.run {
                 startLensPositionObservation(for: device)
@@ -332,7 +332,7 @@ extension CameraManager {
             }
         }
 
-        // 🔧 Re-set videoOutput delegate (removed in stop(), needs restoration after restart)
+        // Re-set videoOutput delegate (removed in stop(), needs restoration after restart)
         if let videoOutput = videoOutput {
             sessionQueue.async { [weak self] in
                 guard let self = self else { return }
@@ -344,7 +344,7 @@ extension CameraManager {
             }
         }
 
-        // 📍 Ensure location updates are running for photo geotagging
+        // Ensure location updates are running for photo geotagging
         locationManager.resumeLocationUpdates()
 
         // Start macro condition timer (4x/sec instead of per-frame)
@@ -356,10 +356,10 @@ extension CameraManager {
             }
         }
 
-        // 🔧 Restore camera mode if there was a pending restore after force reset
+        // Restore camera mode if there was a pending restore after force reset
         if let modeToRestore = pendingModeRestore {
             pendingModeRestore = nil
-            logger.info("🔄 Restoring camera mode to \(modeToRestore.rawValue) after reset")
+            logger.info("Restoring camera mode to \(modeToRestore.rawValue) after reset")
             setCameraMode(modeToRestore)
         }
     }
@@ -392,7 +392,7 @@ extension CameraManager {
         isRunning = false
         state = .ready
 
-        // 🔧 Stop session on sessionQueue - use async to avoid blocking UI
+        // Stop session on sessionQueue - use async to avoid blocking UI
         // The session will stop asynchronously, but state flags are already updated
         // start() will detect and handle any state inconsistency via forceResetSession()
         sessionQueue.async { [weak self] in
@@ -479,13 +479,13 @@ extension CameraManager {
             // Check and enable depth data capture (required for Portrait mode)
             if photoOutput.isDepthDataDeliverySupported && !photoOutput.isDepthDataDeliveryEnabled {
                 photoOutput.isDepthDataDeliveryEnabled = true
-                self.logger.info("✅ Re-enabled depth data delivery after session change")
+                self.logger.info("Re-enabled depth data delivery after session change")
             }
 
             // Check and enable Portrait Effects Matte
             if photoOutput.isPortraitEffectsMatteDeliverySupported && !photoOutput.isPortraitEffectsMatteDeliveryEnabled {
                 photoOutput.isPortraitEffectsMatteDeliveryEnabled = true
-                self.logger.info("✅ Re-enabled Portrait Effects Matte after session change")
+                self.logger.info("Re-enabled Portrait Effects Matte after session change")
             }
 
             // Check and enable Semantic Segmentation Mattes
@@ -493,7 +493,7 @@ extension CameraManager {
             if !availableMatteTypes.isEmpty && photoOutput.enabledSemanticSegmentationMatteTypes.isEmpty {
                 photoOutput.enabledSemanticSegmentationMatteTypes = availableMatteTypes
                 let matteTypeNames = availableMatteTypes.map { $0.rawValue }.joined(separator: ", ")
-                self.logger.info("✅ Re-enabled semantic segmentation mattes after session change: [\(matteTypeNames)]")
+                self.logger.info("Re-enabled semantic segmentation mattes after session change: [\(matteTypeNames)]")
             }
         }
     }
@@ -579,16 +579,16 @@ extension CameraManager {
                     self.captureSession.beginConfiguration()
                     defer { self.captureSession.commitConfiguration() }
 
-                    // 🔧 Safety check: ensure no existing inputs/outputs before configuring
+                    // Safety check: ensure no existing inputs/outputs before configuring
                     // This handles edge cases where forceResetSession may not have fully completed
                     if !self.captureSession.inputs.isEmpty {
-                        self.logger.warning("⚠️ Session has \(self.captureSession.inputs.count) existing inputs - removing...")
+                        self.logger.warning("Session has \(self.captureSession.inputs.count) existing inputs - removing...")
                         for input in self.captureSession.inputs {
                             self.captureSession.removeInput(input)
                         }
                     }
                     if !self.captureSession.outputs.isEmpty {
-                        self.logger.warning("⚠️ Session has \(self.captureSession.outputs.count) existing outputs - removing...")
+                        self.logger.warning("Session has \(self.captureSession.outputs.count) existing outputs - removing...")
                         for output in self.captureSession.outputs {
                             self.captureSession.removeOutput(output)
                         }
@@ -718,14 +718,14 @@ extension CameraManager {
                         let afSystem = device.activeFormat.autoFocusSystem
                         if afSystem == .contrastDetection && device.isSmoothAutoFocusSupported {
                             device.isSmoothAutoFocusEnabled = true
-                            self.logger.info("✅ Smooth AutoFocus enabled (contrast detection system)")
+                            self.logger.info("Smooth AutoFocus enabled (contrast detection system)")
                         }
 
                         // 6. Enable subject area change monitoring (iOS 17+ responsive focus)
                         // When the subject moves significantly, system triggers notification for refocus
                         device.isSubjectAreaChangeMonitoringEnabled = true
                     } catch {
-                        self.logger.error("❌ Failed to configure device: \(error.localizedDescription)")
+                        self.logger.error("Failed to configure device: \(error.localizedDescription)")
                     }
                     continuation.resume()
                 } catch {
@@ -749,7 +749,7 @@ extension CameraManager {
 
                 // Verify session start status
                 if !self.captureSession.isRunning {
-                    self.logger.error("❌ Session failed to start running!")
+                    self.logger.error("Session failed to start running!")
                 }
 
                 continuation.resume()
@@ -762,7 +762,7 @@ extension CameraManager {
             guard let self = self, let photoOutput = self.photoOutput else { return }
             if photoOutput.isContentAwareDistortionCorrectionSupported {
                 photoOutput.isContentAwareDistortionCorrectionEnabled = true
-                self.logger.info("✅ Content-Aware Distortion Correction pre-warmed")
+                self.logger.info("Content-Aware Distortion Correction pre-warmed")
             }
         }
     }
@@ -792,7 +792,7 @@ extension CameraManager {
             return wideAngleCamera
         }
 
-        logger.error("❌ No suitable camera device found")
+        logger.error("No suitable camera device found")
         return nil
     }
 }

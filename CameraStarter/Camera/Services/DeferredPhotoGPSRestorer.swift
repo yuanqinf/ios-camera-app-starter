@@ -204,7 +204,7 @@ final class DeferredPhotoGPSRestorer {
         let restorations = pending.map { PendingGPSRestoration(assetID: $0.key, location: $0.value) }
 
         guard let data = try? JSONEncoder().encode(restorations) else {
-            logger.error("❌ Failed to encode GPS restorations")
+            logger.error("Failed to encode GPS restorations")
             return
         }
 

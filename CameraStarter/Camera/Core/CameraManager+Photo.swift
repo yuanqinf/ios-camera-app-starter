@@ -21,7 +21,7 @@ extension CameraManager {
 
         if captureBackgroundTask == .invalid {
             captureBackgroundTask = UIApplication.shared.beginBackgroundTask(withName: "PhotoCapture") { [weak self] in
-                self?.logger.warning("⚠️ Background task expired during capture")
+                self?.logger.warning("Background task expired during capture")
                 self?.endCaptureBackgroundTask()
             }
         }
@@ -42,7 +42,7 @@ extension CameraManager {
     private func endCaptureBackgroundTask() {
         guard captureBackgroundTask != .invalid else { return }
 
-        // 🔧 Save task ID first and immediately set to invalid to prevent race condition
+        // Save task ID first and immediately set to invalid to prevent race condition
         let taskToEnd = captureBackgroundTask
         captureBackgroundTask = .invalid
 
@@ -73,7 +73,7 @@ extension CameraManager {
     func takePhoto() {
         // Only allow photo capture in photo mode
         guard cameraMode == .photo else {
-            logger.warning("⚠️ takePhoto called in video mode, ignoring (cameraMode=\(self.cameraMode.rawValue))")
+            logger.warning("takePhoto called in video mode, ignoring (cameraMode=\(self.cameraMode.rawValue))")
             return
         }
 
@@ -87,7 +87,7 @@ extension CameraManager {
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.impactOccurred()
 
-        // 🔧 Read all needed state on main thread (avoid cross-thread access later)
+        // Read all needed state on main thread (avoid cross-thread access later)
         let isPortraitMode = (captureMode == .portrait)
         let isMacro = self.isMacroModeActive
 
@@ -127,7 +127,7 @@ extension CameraManager {
             // Note: Content-Aware Distortion Correction is pre-enabled at camera startup
             // to avoid ~300ms first-capture delay. No need to set it here.
 
-            // 💡 Configure flash mode
+            // Configure flash mode
             if self.isFrontCamera {
                 photoSettings.flashMode = .off
             } else if self.flashManager.isFlashModeSupported(self.flashMode, on: photoOutput) {
@@ -220,11 +220,11 @@ extension CameraManager: AVCapturePhotoCaptureDelegate {
             // Live Photo: Register photo part, wait for movie to complete
             Task {
                 await livePhotoManager.completePhotoCapture(id: photoID, photo: photo)
-                logger.info("📸 Live Photo: Photo part completed, waiting for movie...")
+                logger.info("Live Photo: Photo part completed, waiting for movie...")
             }
         }
 
-        // 📸 Send photo to stream (for both regular and Live Photo)
+        // Send photo to stream (for both regular and Live Photo)
         // Use background task to ensure location fetch + photo delivery completes even if app exits
         Task { @MainActor [weak self] in
             guard let self = self else { return }
@@ -267,7 +267,7 @@ extension CameraManager: AVCapturePhotoCaptureDelegate {
         error: Error?
     ) {
         if let error = error {
-            logger.error("❌ Live Photo movie processing error: \(error.localizedDescription)")
+            logger.error("Live Photo movie processing error: \(error.localizedDescription)")
             Task {
                 await livePhotoManager.cancelCapture(id: resolvedSettings.uniqueID)
             }
@@ -275,7 +275,7 @@ extension CameraManager: AVCapturePhotoCaptureDelegate {
         }
 
         let photoID = resolvedSettings.uniqueID
-        logger.info("🎬 Live Photo: Movie processing completed for \(photoID)")
+        logger.info("Live Photo: Movie processing completed for \(photoID)")
 
         Task {
             await livePhotoManager.completeMovieProcessing(id: photoID)
@@ -291,7 +291,7 @@ extension CameraManager: AVCapturePhotoCaptureDelegate {
         error: Error?
     ) {
         if let error = error {
-            logger.error("❌ Deferred photo proxy error: \(error.localizedDescription)")
+            logger.error("Deferred photo proxy error: \(error.localizedDescription)")
             Task { @MainActor [weak self] in
                 self?.finishCaptureLifecycle()
             }
@@ -299,7 +299,7 @@ extension CameraManager: AVCapturePhotoCaptureDelegate {
         }
 
         guard let proxy = deferredPhotoProxy else {
-            logger.warning("⚠️ Deferred photo proxy is nil")
+            logger.warning("Deferred photo proxy is nil")
             return
         }
 

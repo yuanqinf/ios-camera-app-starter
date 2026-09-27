@@ -52,7 +52,7 @@ struct PhotoMetadataWriter {
         // Add image and metadata
         CGImageDestinationAddImageFromSource(destination, imageSource, 0, mutableMetadata as CFDictionary)
 
-        // ✅ Critical fix: Copy all auxiliary data (depth data, Portrait Effects Matte, etc.)
+        // Critical fix: Copy all auxiliary data (depth data, Portrait Effects Matte, etc.)
         // These are required for iOS Photos app Portrait editing features
         copyAuxiliaryData(from: imageSource, to: destination)
 

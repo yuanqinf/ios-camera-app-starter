@@ -196,7 +196,7 @@ private actor VisionPipeline {
             try handler.perform([saliencyRequest, faceRequest, humanRequest, animalRequest])
             modelsReady = true
         } catch {
-            logger.warning("⚠️ Failed to preload Vision models: \(error.localizedDescription)")
+            logger.warning("Failed to preload Vision models: \(error.localizedDescription)")
         }
     }
 
@@ -208,7 +208,7 @@ private actor VisionPipeline {
         normalInterval: TimeInterval,
         slowInterval: TimeInterval
     ) async -> VisionDetectionOutput? {
-        // 🔑 Ensure models are preloaded (will wait on first call)
+        // Ensure models are preloaded (will wait on first call)
         if !modelsReady {
             await preloadModels()
         }
@@ -386,7 +386,7 @@ private actor VisionPipeline {
                     id: subject.id
                 ))
             } catch {
-                logger.warning("⚠️ Tracking failed for subject \(subject.id): \(error.localizedDescription)")
+                logger.warning("Tracking failed for subject \(subject.id): \(error.localizedDescription)")
                 // Tracker failed — will trigger re-detection
             }
         }
@@ -636,7 +636,7 @@ class SubjectDetector: NSObject {
         updateStableSubjectDetection(allSubjects: detectionResult.subjectDetections, primarySubject: detectionResult.bestSubject)
 
         // Portrait uses independent cache and longer grace period
-        // 🔑 Key: Portrait has its own fault tolerance mechanism, independent from UI bounding boxes
+        // Key: Portrait has its own fault tolerance mechanism, independent from UI bounding boxes
         updatePortraitSubjectCache(currentSubjects: detectionResult.subjectDetections)
         onPortraitConditionsUpdate?(lastSubjectsForPortrait, detectionResult.salientObjectBoundingBox)
 

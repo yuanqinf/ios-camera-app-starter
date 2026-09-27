@@ -264,7 +264,7 @@ final class CameraModel {
                 return nil
             }
 
-            Self.bgLogger.info("✨ Auto-enhance applied successfully")
+            Self.bgLogger.info("Auto-enhance applied successfully")
             return output as Data
         }.value
     }
@@ -306,7 +306,7 @@ final class CameraModel {
         guard assetID != thumbnailAssetID || thumbnail == nil else { return }
 
         guard let asset = PHAsset.fetchAssets(withLocalIdentifiers: [assetID], options: nil).firstObject else {
-            logger.warning("⚠️ Could not find PHAsset: \(assetID)")
+            logger.warning("Could not find PHAsset: \(assetID)")
             return
         }
 

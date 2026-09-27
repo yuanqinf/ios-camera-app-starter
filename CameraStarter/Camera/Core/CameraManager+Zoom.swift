@@ -23,13 +23,13 @@ extension CameraManager {
             sessionQueue.async { [weak self] in
                 guard let self = self else { return }
 
-                // 🔑 Check device availability before changing state
+                // Check device availability before changing state
                 guard let tripleCamera = self.getCaptureDevice(for: .back) else {
-                    self.logger.error("❌ Cannot exit macro mode - Triple Camera not available")
+                    self.logger.error("Cannot exit macro mode - Triple Camera not available")
                     return
                 }
 
-                // ✅ Mark as non-macro after confirming device available
+                // Mark as non-macro after confirming device available
                 Task { @MainActor in
                     self.macroManager.setActive(false)
                 }
@@ -69,7 +69,7 @@ extension CameraManager {
                             self.zoomManager?.updateCurrentZoom(clampedZoom)
                             self.startFocusObservation(for: tripleCamera)
                             self.startLensPositionObservation(for: tripleCamera)
-                            self.logger.info("✅ Exited macro mode and set zoom to \(String(format: "%.1f", clampedZoom))x")
+                            self.logger.info("Exited macro mode and set zoom to \(String(format: "%.1f", clampedZoom))x")
                         }
                     } else {
                         throw CameraError.sessionConfigurationFailed
@@ -79,7 +79,7 @@ extension CameraManager {
 
                 } catch {
                     self.captureSession.commitConfiguration()
-                    self.logger.error("❌ Failed to exit macro mode: \(error.localizedDescription)")
+                    self.logger.error("Failed to exit macro mode: \(error.localizedDescription)")
                 }
             }
             return

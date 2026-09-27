@@ -139,7 +139,7 @@ struct CameraView: View {
                                     hasStartedCamera = true
                                     await setupCameraAfterStart()
                                 } catch {
-                                    logger.error("❌ Camera start after permission: \(error.localizedDescription)")
+                                    logger.error("Camera start after permission: \(error.localizedDescription)")
                                 }
                             }
                         }
@@ -210,7 +210,7 @@ struct CameraView: View {
 
                 // Show permission view for notDetermined or denied
                 if cameraStatus != .authorized {
-                    logger.info("📷 Camera permission not authorized (\(String(describing: cameraStatus))) - showing permission view")
+                    logger.info("Camera permission not authorized (\(String(describing: cameraStatus))) - showing permission view")
                     showPermissionView = true
                     showTabTransitionOverlay = false
                     return
@@ -233,7 +233,7 @@ struct CameraView: View {
                         showTabTransitionOverlay = false
                     }
                 } catch {
-                    logger.error("❌ Camera start failed: \(error.localizedDescription)")
+                    logger.error("Camera start failed: \(error.localizedDescription)")
                     cameraError = .startFailed(error.localizedDescription)
                     showErrorAlert = true
                     showTabTransitionOverlay = false
@@ -430,7 +430,7 @@ struct CameraView: View {
                         showPrivacyScreen = false
                     }
                 } catch {
-                    logger.error("❌ Camera restart failed: \(error.localizedDescription)")
+                    logger.error("Camera restart failed: \(error.localizedDescription)")
                     cameraError = .restartFailed(error.localizedDescription)
                     showErrorAlert = true
                     showPrivacyScreen = false
@@ -544,7 +544,7 @@ struct CameraView: View {
     /// Uses Apple-style detection: hysteresis thresholds + motion stability check
     private func startOrientationMonitoring() {
         guard orientationMotionManager.isDeviceMotionAvailable else {
-            logger.warning("⚠️ Device motion not available")
+            logger.warning("Device motion not available")
             return
         }
 

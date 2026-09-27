@@ -63,7 +63,7 @@ class PortraitConditionDetector {
             )
         }
 
-        // 2. ✨ Only enable Portrait mode when subjects are detected
+        // 2. Only enable Portrait mode when subjects are detected
         // This is a subject photography app, don't enable Portrait for walls, objects, etc.
         if !subjectDetections.isEmpty, let selectedSubject = selectBestSubject(from: subjectDetections) {
             let boundingBox = selectedSubject.boundingBox
@@ -88,7 +88,7 @@ class PortraitConditionDetector {
                 )
             }
 
-            // ✅ Subject detected, conditions satisfied
+            // Subject detected, conditions satisfied
             return PortraitCondition(
                 isSatisfied: true,
                 estimatedDistance: estimatedDistance,

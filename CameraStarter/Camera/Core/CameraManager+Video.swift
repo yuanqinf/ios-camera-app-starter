@@ -84,22 +84,22 @@ extension CameraManager {
     private func configureForVideoMode() {
         guard let device = deviceInput?.device else { return }
 
-        // 🔧 CRITICAL FIX: Temporarily remove photo output when in video mode
+        // CRITICAL FIX: Temporarily remove photo output when in video mode
         // Photo output with depth data enabled conflicts with video format settings
         // This fixes error -11872 "Cannot Record"
         if let output = photoOutput {
             captureSession.removeOutput(output)
-            logger.info("📹 Removed photo output for video mode")
+            logger.info("Removed photo output for video mode")
         }
 
-        // 🔧 Also remove video data output (subject detection) during video recording
+        // Also remove video data output (subject detection) during video recording
         // It may conflict with movie output when using custom formats
         if let output = videoOutput {
             captureSession.removeOutput(output)
-            logger.info("📹 Removed video data output for video mode")
+            logger.info("Removed video data output for video mode")
         }
 
-        // 🔧 Configure video format FIRST (before adding outputs)
+        // Configure video format FIRST (before adding outputs)
         // Setting activeFormat automatically sets session to AVCaptureSessionPresetInputPriority
         // This allows custom format without preset conflicts
         configureVideoFormat(for: device)
@@ -120,7 +120,7 @@ extension CameraManager {
         }
 
         // Add movie output AFTER format is configured
-        // 🔧 Always check if movieOutput is in the session, not just if it's nil
+        // Always check if movieOutput is in the session, not just if it's nil
         // This handles the case where movieOutput was removed but reference wasn't cleared
         let needsMovieOutput = movieOutput == nil || !captureSession.outputs.contains(where: { $0 === movieOutput })
 
@@ -137,12 +137,12 @@ extension CameraManager {
             if captureSession.canAddOutput(output) {
                 captureSession.addOutput(output)
                 movieOutput = output
-                logger.info("📹 Added movie output for video recording")
+                logger.info("Added movie output for video recording")
             } else {
-                logger.error("❌ Cannot add movie output to session")
+                logger.error("Cannot add movie output to session")
             }
         } else {
-            logger.info("📹 Movie output already configured")
+            logger.info("Movie output already configured")
         }
 
         // Configure video settings on the movie output connection
@@ -155,7 +155,7 @@ extension CameraManager {
                 if isFront {
                     // Front camera: disable stabilization to match preview FOV
                     connection.preferredVideoStabilizationMode = .off
-                    logger.info("📹 Front camera: stabilization disabled")
+                    logger.info("Front camera: stabilization disabled")
                 } else {
                     switch self.videoStabilizationMode {
                     case .standard:
@@ -163,7 +163,7 @@ extension CameraManager {
                     case .action:
                         connection.preferredVideoStabilizationMode = .cinematicExtendedEnhanced
                     }
-                    logger.info("📹 Stabilization mode set: \(self.videoStabilizationMode.rawValue)")
+                    logger.info("Stabilization mode set: \(self.videoStabilizationMode.rawValue)")
                 }
             }
 
@@ -184,7 +184,7 @@ extension CameraManager {
                     ]
                 ]
                 output.setOutputSettings(videoSettings, for: connection)
-                logger.info("📹 HEVC Main10 (HDR) encoding configured @ \(bitrate / 1_000_000) Mbps")
+                logger.info("HEVC Main10 (HDR) encoding configured @ \(bitrate / 1_000_000) Mbps")
             } else if output.availableVideoCodecTypes.contains(.h264) {
                 // Fallback to H.264
                 let h264Bitrate = isFront ? 25_000_000 : 60_000_000
@@ -198,12 +198,12 @@ extension CameraManager {
                     ]
                 ]
                 output.setOutputSettings(videoSettings, for: connection)
-                logger.info("📹 H.264 encoding configured @ \(h264Bitrate / 1_000_000) Mbps")
+                logger.info("H.264 encoding configured @ \(h264Bitrate / 1_000_000) Mbps")
             }
 
-            logger.info("📹 Video connection configured: active=\(connection.isActive)")
+            logger.info("Video connection configured: active=\(connection.isActive)")
         } else {
-            logger.error("❌ No video connection available for movie output")
+            logger.error("No video connection available for movie output")
         }
 
         // Reset zoom after format change
@@ -278,7 +278,7 @@ extension CameraManager {
 
         // Fallback to 1080p if 4K not available on back camera
         if result == nil && !isFrontCamera {
-            logger.info("📹 4K not available, falling back to 1080p")
+            logger.info("4K not available, falling back to 1080p")
             result = findBestVideoFormat(for: device, targetWidth: 1920, targetHeight: 1080)
         }
 
@@ -307,7 +307,7 @@ extension CameraManager {
             }
 
             let isHDR = codec.hasPrefix("x420")
-            logger.info("📹 Video format configured: \(isFrontCamera ? "front" : "back") camera @ \(Int(dimensions.width))x\(Int(dimensions.height)) \(Int(bestFrameRate))fps, codec: \(codec)\(isHDR ? " (HDR)" : "")")
+            logger.info("Video format configured: \(isFrontCamera ? "front" : "back") camera @ \(Int(dimensions.width))x\(Int(dimensions.height)) \(Int(bestFrameRate))fps, codec: \(codec)\(isHDR ? " (HDR)" : "")")
         } catch {
             logger.error("Failed to configure video format: \(error.localizedDescription)")
         }
@@ -332,21 +332,21 @@ extension CameraManager {
             captureSession.sessionPreset = .photo
         }
 
-        // 🔧 Re-add video data output if it was removed for video mode (for subject detection)
+        // Re-add video data output if it was removed for video mode (for subject detection)
         if let output = videoOutput, !captureSession.outputs.contains(output) {
             if captureSession.canAddOutput(output) {
                 captureSession.addOutput(output)
                 // Restore delegate
                 output.setSampleBufferDelegate(self, queue: videoOutputQueue)
-                logger.info("📷 Re-added video data output for photo mode")
+                logger.info("Re-added video data output for photo mode")
             }
         }
 
-        // 🔧 Re-add photo output if it was removed for video mode
+        // Re-add photo output if it was removed for video mode
         if let output = photoOutput, !captureSession.outputs.contains(output) {
             if captureSession.canAddOutput(output) {
                 captureSession.addOutput(output)
-                logger.info("📷 Re-added photo output for photo mode")
+                logger.info("Re-added photo output for photo mode")
 
                 // Re-configure photo output settings (depth, mattes, quality)
                 if let device = deviceInput?.device {
@@ -354,7 +354,7 @@ extension CameraManager {
                     configurePhotoOutputQuality(output, device: device)
                 }
             } else {
-                logger.error("❌ Cannot re-add photo output to session")
+                logger.error("Cannot re-add photo output to session")
             }
         }
 
@@ -375,20 +375,20 @@ extension CameraManager {
 
     /// Start video recording
     func startRecording() {
-        // 🔧 Detailed logging to diagnose why recording might not start
+        // Detailed logging to diagnose why recording might not start
         guard cameraMode == .video else {
-            logger.warning("⚠️ startRecording called but cameraMode=\(self.cameraMode.rawValue), not video")
+            logger.warning("startRecording called but cameraMode=\(self.cameraMode.rawValue), not video")
             return
         }
         guard !isRecording else {
-            logger.warning("⚠️ startRecording called but already recording")
+            logger.warning("startRecording called but already recording")
             return
         }
         guard let output = movieOutput else {
-            logger.error("❌ startRecording failed: movieOutput is nil")
+            logger.error("startRecording failed: movieOutput is nil")
             // Try to recover by reconfiguring video mode
             if deviceInput?.device != nil {
-                logger.info("🔄 Attempting to reconfigure video mode...")
+                logger.info("Attempting to reconfigure video mode...")
                 sessionQueue.async { [weak self] in
                     self?.configureForVideoMode()
                 }
@@ -398,11 +398,11 @@ extension CameraManager {
 
         // Verify video connection is available and active
         guard let connection = output.connection(with: .video) else {
-            logger.error("❌ Cannot start recording: no video connection")
+            logger.error("Cannot start recording: no video connection")
             return
         }
         guard connection.isActive else {
-            logger.error("❌ Cannot start recording: video connection not active")
+            logger.error("Cannot start recording: video connection not active")
             return
         }
 
@@ -441,7 +441,7 @@ extension CameraManager {
             sessionQueue.asyncAfter(deadline: .now() + startDelay) { [weak self] in
                 guard let self = self, self.isRecording else { return }
                 output.startRecording(to: outputURL, recordingDelegate: self)
-                self.logger.info("📹 Front camera recording started after \(startDelay)s delay")
+                self.logger.info("Front camera recording started after \(startDelay)s delay")
             }
         } else {
             // Start recording immediately for back camera
