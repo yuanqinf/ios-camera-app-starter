@@ -72,6 +72,13 @@ it, and start from a camera that already works.
   `SubjectLockService`, which follows the subject you tap.
 - `CameraView` lays out the screen from the components in `Camera/UI`.
 
+## Tests
+
+`CameraStarterTests` covers the logic that doesn't need a camera: choosing
+the subject to focus on, keeping a subject's identity from frame to frame,
+detection throttling, coordinate conversion and aspect ratios. They use Swift
+Testing and run on the simulator with ⌘U.
+
 ## Before you ship
 
 - **Privacy manifest.** `PrivacyInfo.xcprivacy` declares what the app does

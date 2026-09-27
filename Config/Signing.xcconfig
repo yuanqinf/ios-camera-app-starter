@@ -8,6 +8,9 @@
 //
 
 DEVELOPMENT_TEAM =
-PRODUCT_BUNDLE_IDENTIFIER = com.example.CameraStarter
+APP_BUNDLE_IDENTIFIER = com.example.CameraStarter
 
 #include? "Local.xcconfig"
+
+// The app uses the identifier as is; the test bundle adds ".tests" to it.
+PRODUCT_BUNDLE_IDENTIFIER = $(APP_BUNDLE_IDENTIFIER)

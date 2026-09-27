@@ -86,6 +86,104 @@ nonisolated struct SubjectDetectionResult: Equatable, Sendable, Identifiable {
 
 }
 
+/// How detections become subjects: which one to focus on, and which
+/// earlier subject each new detection is. Pure functions of their inputs,
+/// so they're tested directly.
+nonisolated enum SubjectSelection {
+    /// Select best subject for focus from multiple subjects
+    /// Priority: center region > confidence > size
+    static func bestSubjectForFocus(from subjects: [SubjectDetectionResult]) -> SubjectDetectionResult? {
+        guard !subjects.isEmpty else { return nil }
+
+        // 1. Filter subjects in center region (30% of frame center)
+        let centerRegion = CGRect(x: 0.35, y: 0.35, width: 0.3, height: 0.3)
+        let centerSubjects = subjects.filter { subject in
+            let subjectCenter = CGPoint(x: subject.boundingBox.midX, y: subject.boundingBox.midY)
+            return centerRegion.contains(subjectCenter)
+        }
+
+        // 2. If subjects in center region, select highest confidence
+        if !centerSubjects.isEmpty {
+            return centerSubjects.max(by: { $0.confidence < $1.confidence })
+        }
+
+        // 3. Otherwise select largest (closest) subject
+        return subjects.max(by: {
+            ($0.boundingBox.width * $0.boundingBox.height) <
+            ($1.boundingBox.width * $1.boundingBox.height)
+        })
+    }
+
+    /// Use nearest distance priority matching algorithm to assign stable IDs to newly detected subjects
+    /// Avoid incorrect ID assignment when multiple subjects are close together
+    ///
+    /// PERFORMANCE: Optimized with early exits and pre-computed centers
+    /// - O(n*m) where n = new subjects, m = old subjects (typically 1-4 each)
+    /// - Early exit when all subjects are matched
+    /// - Pre-compute centers to avoid repeated midX/midY calculations
+    static func stableIDs(
+        for newSubjects: [SubjectDetectionResult],
+        previous: [SubjectDetectionResult],
+        matchThreshold: CGFloat
+    ) -> [UUID] {
+        // Early exit: no previous detections to match against
+        guard !previous.isEmpty else {
+            return newSubjects.map { _ in UUID() }
+        }
+
+        // Early exit: no new subjects to match
+        guard !newSubjects.isEmpty else {
+            return []
+        }
+
+        // Initialize independent new UUID for each new subject (used when unmatched)
+        var result: [UUID] = newSubjects.map { _ in UUID() }
+        var usedOldIndices: Set<Int> = []
+
+        // Pre-compute centers for all old subjects (avoid repeated calculations)
+        let oldCenters = previous.map { subject in
+            CGPoint(x: subject.boundingBox.midX, y: subject.boundingBox.midY)
+        }
+
+        // Calculate distances between all new and old subjects
+        // Pre-allocate capacity to avoid repeated array reallocations
+        var distances: [(newIndex: Int, oldIndex: Int, distance: CGFloat)] = []
+        distances.reserveCapacity(newSubjects.count * previous.count)
+
+        for (newIndex, newSubject) in newSubjects.enumerated() {
+            let newCenter = CGPoint(x: newSubject.boundingBox.midX, y: newSubject.boundingBox.midY)
+
+            for (oldIndex, oldCenter) in oldCenters.enumerated() {
+                let distance = hypot(newCenter.x - oldCenter.x, newCenter.y - oldCenter.y)
+
+                if distance < matchThreshold {
+                    distances.append((newIndex, oldIndex, distance))
+                }
+            }
+        }
+
+        // Sort by distance (nearest match first)
+        distances.sort { $0.distance < $1.distance }
+
+        // Greedy matching: each new subject can only match one old subject, each old subject can only be matched once
+        var matchedNewIndices: Set<Int> = []
+        let maxMatches = min(newSubjects.count, previous.count)
+
+        for match in distances {
+            // Early exit: all possible matches done
+            if matchedNewIndices.count >= maxMatches { break }
+
+            if !matchedNewIndices.contains(match.newIndex) && !usedOldIndices.contains(match.oldIndex) {
+                result[match.newIndex] = previous[match.oldIndex].id
+                matchedNewIndices.insert(match.newIndex)
+                usedOldIndices.insert(match.oldIndex)
+            }
+        }
+
+        return result
+    }
+}
+
 /// Vision detection output (for main thread use)
 private struct VisionDetectionOutput: Sendable {
     let subjectDetections: [SubjectDetectionResult]
@@ -297,7 +395,7 @@ private actor VisionPipeline {
             await initializeTrackers(from: detectedSubjects)
 
             // Select best subject for focus
-            let subjectDetectionResult = selectBestSubjectForFocus(from: allSubjectDetections)
+            let subjectDetectionResult = SubjectSelection.bestSubjectForFocus(from: allSubjectDetections)
 
             // Determine focus point
             var focusCenter: CGPoint? = nil
@@ -399,7 +497,7 @@ private actor VisionPipeline {
         }
 
         // Select best subject for focus
-        let subjectDetectionResult = selectBestSubjectForFocus(from: allSubjectDetections)
+        let subjectDetectionResult = SubjectSelection.bestSubjectForFocus(from: allSubjectDetections)
 
         // Focus uses the bounding box center during tracking
         var focusCenter: CGPoint? = nil
@@ -480,32 +578,6 @@ private actor VisionPipeline {
         trackedSubjects = []
         framesSinceLastDetection = 0
         sequenceHandler = VNSequenceRequestHandler()
-    }
-
-    // MARK: - Focus Selection
-
-    /// Select best subject for focus from multiple subjects
-    /// Priority: center region > confidence > size
-    private func selectBestSubjectForFocus(from subjects: [SubjectDetectionResult]) -> SubjectDetectionResult? {
-        guard !subjects.isEmpty else { return nil }
-
-        // 1. Filter subjects in center region (30% of frame center)
-        let centerRegion = CGRect(x: 0.35, y: 0.35, width: 0.3, height: 0.3)
-        let centerSubjects = subjects.filter { subject in
-            let subjectCenter = CGPoint(x: subject.boundingBox.midX, y: subject.boundingBox.midY)
-            return centerRegion.contains(subjectCenter)
-        }
-
-        // 2. If subjects in center region, select highest confidence
-        if !centerSubjects.isEmpty {
-            return centerSubjects.max(by: { $0.confidence < $1.confidence })
-        }
-
-        // 3. Otherwise select largest (closest) subject
-        return subjects.max(by: {
-            ($0.boundingBox.width * $0.boundingBox.height) <
-            ($1.boundingBox.width * $1.boundingBox.height)
-        })
     }
 }
 
@@ -671,7 +743,11 @@ class SubjectDetector: NSObject {
 
             // Process all subjects
             // Use nearest distance matching algorithm to keep ID stable, prevent UI jumping
-            let matchedIDs = matchSubjectsWithIDs(newSubjects: allSubjects)
+            let matchedIDs = SubjectSelection.stableIDs(
+                for: allSubjects,
+                previous: lastAllSubjectDetections,
+                matchThreshold: subjectMatchThreshold
+            )
             var stableAllSubjects: [SubjectDetectionResult] = []
             var currentPrimaryID: UUID? = nil
 
@@ -750,71 +826,6 @@ class SubjectDetector: NSObject {
         }
     }
 
-    /// Use nearest distance priority matching algorithm to assign stable IDs to newly detected subjects
-    /// Avoid incorrect ID assignment when multiple subjects are close together
-    ///
-    /// PERFORMANCE: Optimized with early exits and pre-computed centers
-    /// - O(n*m) where n = new subjects, m = old subjects (typically 1-4 each)
-    /// - Early exit when all subjects are matched
-    /// - Pre-compute centers to avoid repeated midX/midY calculations
-    @MainActor
-    private func matchSubjectsWithIDs(newSubjects: [SubjectDetectionResult]) -> [UUID] {
-        // Early exit: no previous detections to match against
-        guard !lastAllSubjectDetections.isEmpty else {
-            return newSubjects.map { _ in UUID() }
-        }
-
-        // Early exit: no new subjects to match
-        guard !newSubjects.isEmpty else {
-            return []
-        }
-
-        // Initialize independent new UUID for each new subject (used when unmatched)
-        var result: [UUID] = newSubjects.map { _ in UUID() }
-        var usedOldIndices: Set<Int> = []
-
-        // Pre-compute centers for all old subjects (avoid repeated calculations)
-        let oldCenters = lastAllSubjectDetections.map { subject in
-            CGPoint(x: subject.boundingBox.midX, y: subject.boundingBox.midY)
-        }
-
-        // Calculate distances between all new and old subjects
-        // Pre-allocate capacity to avoid repeated array reallocations
-        var distances: [(newIndex: Int, oldIndex: Int, distance: CGFloat)] = []
-        distances.reserveCapacity(newSubjects.count * lastAllSubjectDetections.count)
-
-        for (newIndex, newSubject) in newSubjects.enumerated() {
-            let newCenter = CGPoint(x: newSubject.boundingBox.midX, y: newSubject.boundingBox.midY)
-
-            for (oldIndex, oldCenter) in oldCenters.enumerated() {
-                let distance = hypot(newCenter.x - oldCenter.x, newCenter.y - oldCenter.y)
-
-                if distance < subjectMatchThreshold {
-                    distances.append((newIndex, oldIndex, distance))
-                }
-            }
-        }
-
-        // Sort by distance (nearest match first)
-        distances.sort { $0.distance < $1.distance }
-
-        // Greedy matching: each new subject can only match one old subject, each old subject can only be matched once
-        var matchedNewIndices: Set<Int> = []
-        let maxMatches = min(newSubjects.count, lastAllSubjectDetections.count)
-
-        for match in distances {
-            // Early exit: all possible matches done
-            if matchedNewIndices.count >= maxMatches { break }
-
-            if !matchedNewIndices.contains(match.newIndex) && !usedOldIndices.contains(match.oldIndex) {
-                result[match.newIndex] = lastAllSubjectDetections[match.oldIndex].id
-                matchedNewIndices.insert(match.newIndex)
-                usedOldIndices.insert(match.oldIndex)
-            }
-        }
-
-        return result
-    }
 
 }
 

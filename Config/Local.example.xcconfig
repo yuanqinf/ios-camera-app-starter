@@ -7,4 +7,4 @@
 DEVELOPMENT_TEAM = ABCDE12345
 
 // Any identifier you own, usually reverse-DNS
-PRODUCT_BUNDLE_IDENTIFIER = com.yourname.CameraStarter
+APP_BUNDLE_IDENTIFIER = com.yourname.CameraStarter
