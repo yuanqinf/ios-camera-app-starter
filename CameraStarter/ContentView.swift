@@ -2,23 +2,21 @@
 //  ContentView.swift
 //  CameraStarter
 //
-//  Created by Yuanqin Fan on 9/26/26.
-//
 
 import SwiftUI
 
+/// The whole app is the camera.
 struct ContentView: View {
-    var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
-        }
-        .padding()
-    }
-}
+    /// Owned here so the camera session outlives any view rebuild below.
+    @State private var model = DataModel()
 
-#Preview {
-    ContentView()
+    /// False while the permission screen is up, true once the preview is live.
+    @State private var isCameraReady = false
+
+    var body: some View {
+        CameraView(model: model, isCameraReady: $isCameraReady)
+            // Dark once the viewfinder shows, so the system chrome around it
+            // matches; the permission screen keeps the user's own appearance.
+            .preferredColorScheme(isCameraReady ? .dark : nil)
+    }
 }
