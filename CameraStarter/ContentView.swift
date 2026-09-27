@@ -8,7 +8,7 @@ import SwiftUI
 /// The whole app is the camera.
 struct ContentView: View {
     /// Owned here so the camera session outlives any view rebuild below.
-    @State private var model = DataModel()
+    @State private var model = CameraModel()
 
     /// False while the permission screen is up, true once the preview is live.
     @State private var isCameraReady = false

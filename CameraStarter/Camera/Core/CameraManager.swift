@@ -325,17 +325,10 @@ final class CameraManager: NSObject {
     // Location manager (for adding location info to photos)
     private let locationManager = LocationManager()
 
-    // Photo stream continuation (nonisolated access)
-    private var addToPhotoStream: (((photo: AVCapturePhoto, location: CLLocation?)) -> Void)?
-    private var photoContinuation: AsyncStream<(photo: AVCapturePhoto, location: CLLocation?)>.Continuation?
-
-    // Deferred photo stream (Deferred Photo Processing)
-    private var addToDeferredPhotoStream: (((proxy: AVCaptureDeferredPhotoProxy, location: CLLocation?)) -> Void)?
-    private var deferredPhotoContinuation: AsyncStream<(proxy: AVCaptureDeferredPhotoProxy, location: CLLocation?)>.Continuation?
-
-    // Video stream (for video recording completion)
-    private var addToVideoStream: (((url: URL, location: CLLocation?)) -> Void)?
-    private var videoContinuation: AsyncStream<(url: URL, location: CLLocation?)>.Continuation?
+    // The write ends of the three public streams
+    private let photoContinuation: AsyncStream<(photo: AVCapturePhoto, location: CLLocation?)>.Continuation
+    private let deferredPhotoContinuation: AsyncStream<(proxy: AVCaptureDeferredPhotoProxy, location: CLLocation?)>.Continuation
+    private let videoContinuation: AsyncStream<(url: URL, location: CLLocation?)>.Continuation
 
     // Capture state
     // Note: No lock needed - CameraManager is @MainActor isolated,
@@ -371,23 +364,9 @@ final class CameraManager: NSObject {
         // Load persisted flash mode from FlashManager
         self.flashMode = flashManager.currentMode
 
-        // Initialize photo stream
-        var tempContinuation: AsyncStream<(photo: AVCapturePhoto, location: CLLocation?)>.Continuation?
-        self.photoStream = AsyncStream { continuation in
-            tempContinuation = continuation
-        }
-
-        // Initialize deferred photo stream (Deferred Photo Processing)
-        var tempDeferredContinuation: AsyncStream<(proxy: AVCaptureDeferredPhotoProxy, location: CLLocation?)>.Continuation?
-        self.deferredPhotoStream = AsyncStream { continuation in
-            tempDeferredContinuation = continuation
-        }
-
-        // Initialize video stream
-        var tempVideoContinuation: AsyncStream<(url: URL, location: CLLocation?)>.Continuation?
-        self.videoStream = AsyncStream { continuation in
-            tempVideoContinuation = continuation
-        }
+        (photoStream, photoContinuation) = AsyncStream.makeStream()
+        (deferredPhotoStream, deferredPhotoContinuation) = AsyncStream.makeStream()
+        (videoStream, videoContinuation) = AsyncStream.makeStream()
 
         super.init()
 
@@ -403,24 +382,6 @@ final class CameraManager: NSObject {
 
         // Connect preview layer to session
         self.previewLayer.session = captureSession
-
-        // 🔧 Store continuation first, then set up photo stream closure
-        self.photoContinuation = tempContinuation
-        self.addToPhotoStream = { [weak self] tuple in
-            self?.photoContinuation?.yield(tuple)
-        }
-
-        // Set up deferred photo stream closure
-        self.deferredPhotoContinuation = tempDeferredContinuation
-        self.addToDeferredPhotoStream = { [weak self] tuple in
-            self?.deferredPhotoContinuation?.yield(tuple)
-        }
-
-        // Set up video stream closure
-        self.videoContinuation = tempVideoContinuation
-        self.addToVideoStream = { [weak self] tuple in
-            self?.videoContinuation?.yield(tuple)
-        }
 
         // Request location permission
         locationManager.requestAuthorization()
@@ -491,9 +452,9 @@ final class CameraManager: NSObject {
         NotificationCenter.default.removeObserver(self)
 
         // Finish async stream continuations
-        photoContinuation?.finish()
-        deferredPhotoContinuation?.finish()
-        videoContinuation?.finish()
+        photoContinuation.finish()
+        deferredPhotoContinuation.finish()
+        videoContinuation.finish()
     }
 
     // MARK: - Session Monitoring
@@ -985,15 +946,10 @@ final class CameraManager: NSObject {
                 return
             }
 
-            // Create photo settings with minimal configuration for speed
-            var photoSettings = AVCapturePhotoSettings()
-
-            // Use HEVC encoding (if supported)
-            if photoOutput.availablePhotoCodecTypes.contains(.hevc) {
-                photoSettings = AVCapturePhotoSettings(
-                    format: [AVVideoCodecKey: AVVideoCodecType.hevc]
-                )
-            }
+            // HEIC where the device can encode it, the system default otherwise
+            let photoSettings = photoOutput.availablePhotoCodecTypes.contains(.hevc)
+                ? AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.hevc])
+                : AVCapturePhotoSettings()
 
             // Set max resolution (match native camera)
             photoSettings.maxPhotoDimensions = photoOutput.maxPhotoDimensions
@@ -1565,25 +1521,17 @@ final class CameraManager: NSObject {
         }
     }
 
-    /// Check camera permissions
+    /// Throws unless the app may use the camera, asking the first time.
+    ///
+    /// `start()` calls this before configuring the session, so there is nothing
+    /// on the session to hold back while the system prompt is up.
     private func checkAuthorization() async throws {
-        switch AVCaptureDevice.authorizationStatus(for: .video) {
-        case .authorized:
-            return
-        case .notDetermined:
-            sessionQueue.suspend()
-            defer { sessionQueue.resume() }  // Guarantee resume even if task is cancelled
-
-            let granted = await AVCaptureDevice.requestAccess(for: .video)
-            if !granted {
-                logger.error("Camera access denied by user")
-                throw CameraError.permissionDenied
-            }
-        case .denied, .restricted:
-            logger.error("Camera access denied or restricted")
-            throw CameraError.permissionDenied
-        @unknown default:
-            logger.error("Unknown camera authorization status")
+        let status = AVCaptureDevice.authorizationStatus(for: .video)
+        let granted = status == .notDetermined
+            ? await AVCaptureDevice.requestAccess(for: .video)
+            : status == .authorized
+        guard granted else {
+            logger.error("Camera access not granted (status \(status.rawValue))")
             throw CameraError.permissionDenied
         }
     }
@@ -1876,7 +1824,7 @@ extension CameraManager: AVCapturePhotoCaptureDelegate {
             let location = await self.locationManager.requestInstantLocation()
 
             // Send photo to stream
-            self.addToPhotoStream?((photo: photo, location: location))
+            self.photoContinuation.yield((photo, location))
 
             // Photo capture complete
             Task { @MainActor in
@@ -1954,7 +1902,7 @@ extension CameraManager: AVCapturePhotoCaptureDelegate {
             let location = await self.locationManager.requestInstantLocation()
 
             // Send proxy photo to stream (system will complete processing in background and auto-update)
-            self.addToDeferredPhotoStream?((proxy: proxy, location: location))
+            self.deferredPhotoContinuation.yield((proxy, location))
 
             // Restore focus and exposure
             Task { @MainActor in
@@ -2558,9 +2506,9 @@ extension CameraManager: AVCaptureFileOutputRecordingDelegate {
                 return
             }
 
-            // Emit to video stream for DataModel to handle saving
+            // Hand the file to whoever saves recordings
             let location = self.locationManager.currentLocation
-            self.addToVideoStream?((url: outputFileURL, location: location))
+            self.videoContinuation.yield((outputFileURL, location))
         }
     }
 }

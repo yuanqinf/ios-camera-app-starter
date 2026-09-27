@@ -2,135 +2,53 @@
 //  ThumbnailView.swift
 //  CameraStarter
 //
-//  Created by Yuanqin Fan on 11/10/25.
+//  The newest capture, in the square at the corner of the bottom bar.
 //
 
 import SwiftUI
 
-/// Thumbnail feedback type
-enum ThumbnailFeedbackType: Equatable {
-    case saved     // Green border flash for saved photo
-    case discarded // Red border shake for discarded photo
-}
-
 struct ThumbnailView: View {
+    /// The capture to show. Nil for an empty album.
     var image: Image?
-    var pendingCount: Int = 0  // Number of pending photos to save
-    var feedbackType: ThumbnailFeedbackType?
 
-    private var isProcessing: Bool {
-        pendingCount > 0
-    }
+    /// Rings the thumbnail in green, to mark a photo that just landed in it.
+    var isFlashing = false
 
-    /// Border color based on feedback type
-    private var borderColor: Color {
-        switch feedbackType {
-        case .saved:
-            return .green
-        case .discarded:
-            return .red
-        case .none:
-            return .appPrimaryText.opacity(0.2)
-        }
-    }
-
-    /// Border width based on feedback type
-    private var borderWidth: CGFloat {
-        feedbackType != nil ? 3 : 2
-    }
+    private let shape = RoundedRectangle(cornerRadius: 10)
 
     var body: some View {
         ZStack {
-            // Base layer: thumbnail
-            thumbnailBase
+            Color.appSecondaryBackground
 
-            // Processing overlay
-            if isProcessing {
-                processingOverlay
-            }
-        }
-        .frame(width: 50, height: 50)
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(borderColor, lineWidth: borderWidth)
-        )
-        .modifier(ShakeEffect(shakes: feedbackType == .discarded ? 4 : 0))
-        .animation(.easeInOut(duration: 0.2), value: pendingCount)
-        .animation(.easeInOut(duration: 0.3), value: feedbackType)
-    }
-
-    private var thumbnailBase: some View {
-        ZStack {
-            if let image = image {
-                // Has image - show it
-                Color.appSecondaryBackground
+            if let image {
                 image
                     .resizable()
                     .scaledToFill()
-                    .allowedDynamicRange(.high)  // Enable HDR display
-                    .blur(radius: isProcessing ? 2 : 0)
+                    .allowedDynamicRange(.high)
             } else {
-                // No image yet - an empty album
-                Color.appSecondaryBackground
                 Image(systemName: "photo")
                     .font(.system(size: 20))
                     .foregroundColor(.appPrimaryColor.opacity(0.6))
             }
         }
-    }
-
-    private var processingOverlay: some View {
-        ZStack {
-            // Semi-transparent background
-            Color.appPrimaryText.opacity(0.5)
-
-            VStack(spacing: 2) {
-                // Count badge
-                Text("\(pendingCount)")
-                    .font(.system(size: 16, weight: .bold, design: .rounded))
-                    .foregroundColor(.appBackground)
-
-                // Small progress indicator
-                ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: .appBackground))
-                    .scaleEffect(0.5)
-            }
+        .frame(width: 50, height: 50)
+        .clipShape(shape)
+        .overlay {
+            shape.stroke(
+                isFlashing ? Color.green : Color.appPrimaryText.opacity(0.2),
+                lineWidth: isFlashing ? 3 : 2
+            )
         }
+        .animation(.easeInOut(duration: 0.3), value: isFlashing)
     }
 }
 
-// MARK: - Shake Effect
-
-struct ShakeEffect: GeometryEffect {
-    var shakes: Int
-    var animatableData: CGFloat {
-        get { CGFloat(shakes) }
-        set { shakes = Int(newValue) }
+#Preview {
+    VStack(spacing: 20) {
+        ThumbnailView(image: nil)
+        ThumbnailView(image: Image(systemName: "photo.fill"))
+        ThumbnailView(image: Image(systemName: "photo.fill"), isFlashing: true)
     }
-
-    func effectValue(size: CGSize) -> ProjectionTransform {
-        let offset = sin(animatableData * .pi * 2) * 4
-        return ProjectionTransform(CGAffineTransform(translationX: offset, y: 0))
-    }
-}
-
-struct ThumbnailView_Previews: PreviewProvider {
-    static let previewImage = Image(systemName: "photo.fill")
-    static var previews: some View {
-        VStack(spacing: 20) {
-            // Placeholder (no image)
-            ThumbnailView(image: nil, pendingCount: 0)
-            // With image
-            ThumbnailView(image: previewImage, pendingCount: 0)
-            // Processing states
-            ThumbnailView(image: previewImage, pendingCount: 3)
-            ThumbnailView(image: previewImage, pendingCount: 10)
-            // Feedback states
-            ThumbnailView(image: previewImage, feedbackType: .saved)
-            ThumbnailView(image: previewImage, feedbackType: .discarded)
-        }
-        .padding()
-        .background(Color.black)
-    }
+    .padding()
+    .background(Color.black)
 }

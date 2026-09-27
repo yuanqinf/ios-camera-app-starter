@@ -2,7 +2,7 @@
 //  CameraBottomBar.swift
 //  CameraStarter
 //
-//  Camera bottom controls: shot controls, shutter, gallery, capture assist, sound
+//  Camera bottom controls: shot controls, Photos button, shutter, camera flip
 //  Extracted from CameraView for better separation of concerns
 //
 
@@ -12,7 +12,7 @@ import AVFoundation
 struct CameraBottomBar: View {
     // MARK: - Dependencies
 
-    @Bindable var model: DataModel
+    @Bindable var model: CameraModel
     let settings: SettingsManager
     let uiRotationAngle: Angle
     let devicePhysicalOrientation: UIDeviceOrientation
@@ -25,15 +25,19 @@ struct CameraBottomBar: View {
     @Binding var previewOpacity: Double
     @Binding var isModeSwitchingInProgress: Bool
     @Binding var showFreezeFrame: Bool
-    @Binding var thumbnailFeedbackType: ThumbnailFeedbackType?
     @Binding var savedAspectRatioForPhotoMode: AspectRatio?
     @Binding var modeSwitchUnblockTask: Task<Void, Never>?
     @Binding var toastMessage: ToastMessage?
 
+    // MARK: - State
+
+    /// Whether the thumbnail is flashing for a photo just taken
+    let isThumbnailFlashing: Bool
+
     // MARK: - Callbacks
 
     var onTakePhoto: () -> Void
-    var onOpenGallery: () -> Void
+    var onOpenPhotos: () -> Void
 
     // MARK: - Private State
 
@@ -120,7 +124,7 @@ struct CameraBottomBar: View {
     private var buttonsView: some View {
         HStack(spacing: 0) {
             // Left: Thumbnail
-            galleryButton
+            photosButton
                 .frame(width: 100, alignment: .leading)
 
             Spacer()
@@ -146,15 +150,15 @@ struct CameraBottomBar: View {
         .background(Color.black.opacity(0.6))
     }
 
-    // MARK: - Gallery Button
+    // MARK: - Photos Button
 
-    private var galleryButton: some View {
+    private var photosButton: some View {
         Button {
-            onOpenGallery()
+            onOpenPhotos()
         } label: {
             ThumbnailView(
-                image: model.thumbnailImage,
-                feedbackType: thumbnailFeedbackType
+                image: model.thumbnail,
+                isFlashing: isThumbnailFlashing
             )
             .contentShape(RoundedRectangle(cornerRadius: 10))
             .rotationEffect(uiRotationAngle)
@@ -165,7 +169,7 @@ struct CameraBottomBar: View {
         .buttonStyle(.plain)
         .accessibilityLabel("camera.photos".localized)
         .accessibilityHint("Opens the Photos app")
-        .onChange(of: model.thumbnailImage) { oldImage, newImage in
+        .onChange(of: model.thumbnail) { oldImage, newImage in
             withAnimation(AppAnimation.thumbnailSpring) {
                 thumbnailUpdateTrigger += 1
             }

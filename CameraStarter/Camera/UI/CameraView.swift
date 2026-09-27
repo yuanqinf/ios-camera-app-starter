@@ -16,7 +16,7 @@ struct CameraView: View {
 
     // MARK: - Data Model (passed from parent to ensure single instance)
     /// Camera data model - must be passed from parent view to prevent recreation
-    @Bindable var model: DataModel
+    @Bindable var model: CameraModel
 
     // MARK: - Tab mode support
     /// Whether this camera view is the currently active tab (controls session start/stop)
@@ -74,8 +74,8 @@ struct CameraView: View {
     // Tab switch transition overlay (hides stale preview frame)
     @State private var showTabTransitionOverlay = false
 
-    // Thumbnail feedback animation
-    @State private var thumbnailFeedbackType: ThumbnailFeedbackType?
+    // Thumbnail flash for a photo just taken
+    @State private var isThumbnailFlashing = false
 
     // Camera mode (Photo/Video)
     @State private var selectedCameraMode: CameraMode = .photo
@@ -188,12 +188,12 @@ struct CameraView: View {
                                 previewOpacity: $previewOpacity,
                                 isModeSwitchingInProgress: $isModeSwitchingInProgress,
                                 showFreezeFrame: $showFreezeFrame,
-                                thumbnailFeedbackType: $thumbnailFeedbackType,
                                 savedAspectRatioForPhotoMode: $savedAspectRatioForPhotoMode,
                                 modeSwitchUnblockTask: $modeSwitchUnblockTask,
                                 toastMessage: $toastMessage,
+                                isThumbnailFlashing: isThumbnailFlashing,
                                 onTakePhoto: { handleTakePhoto() },
-                                onOpenGallery: openPhotosApp
+                                onOpenPhotos: openPhotosApp
                             )
                             .frame(height: bottomControlsHeight)
                             .background(Color.clear)
@@ -366,49 +366,25 @@ struct CameraView: View {
         }
     }
 
-    /// Setup callbacks for photo/video saves
-    /// Note: Photo import to subject gallery is handled by PhotoLibraryObserver (AI-based matching)
-    private func setupPhotoAutoImport() {
-        model.onPhotoSaved = { [weak model] assetID in
+    /// Flash the thumbnail, with a haptic, as each photo lands in it
+    private func setupCaptureFeedback() {
+        model.onCapture = {
             Task { @MainActor in
-                model?.updateThumbnailAssetID(assetID)
+                self.flashThumbnail()
             }
         }
-
-        model.onVideoSaved = { [weak model] assetID in
-            Task { @MainActor in
-                model?.updateThumbnailAssetID(assetID)
-            }
-        }
-
-        // Photo saved feedback: green border flash (for all photos)
-        model.onPhotoThumbnailUpdated = {
-            Task { @MainActor in
-                self.showThumbnailFeedback(.saved)
-            }
-        }
-
     }
 
-    /// Show thumbnail feedback animation
-    private func showThumbnailFeedback(_ type: ThumbnailFeedbackType) {
+    private func flashThumbnail() {
         withAnimation(.easeInOut(duration: 0.15)) {
-            thumbnailFeedbackType = type
+            isThumbnailFlashing = true
         }
+        Haptics.success()
 
-        // Haptic feedback
-        switch type {
-        case .saved:
-            Haptics.success()
-        case .discarded:
-            Haptics.warning()
-        }
-
-        // Auto-clear after animation
         Task {
             try? await Task.sleep(for: .milliseconds(500))
             withAnimation(.easeOut(duration: 0.2)) {
-                thumbnailFeedbackType = nil
+                isThumbnailFlashing = false
             }
         }
     }
@@ -694,14 +670,14 @@ struct CameraView: View {
 
     /// Setup camera after successful start (extracted for reuse after permission grant)
     private func setupCameraAfterStart() async {
-        await model.loadPhotos()
+        await model.prepareAlbum()
         await model.loadLatestThumbnail()
 
         // Setup subject detection callback
         setupSubjectDetection()
 
-        // Setup photo save callback, auto add to gallery
-        setupPhotoAutoImport()
+        // Flash the thumbnail as photos come in
+        setupCaptureFeedback()
 
         // Sync zoom state (device zoom to UI zoom)
         // Device 2.0x → UI 1x
@@ -719,5 +695,5 @@ struct CameraView: View {
 
 
 #Preview {
-    CameraView(model: DataModel())
+    CameraView(model: CameraModel())
 }

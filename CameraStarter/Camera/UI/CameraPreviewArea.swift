@@ -12,7 +12,7 @@ import AVFoundation
 struct CameraPreviewArea: View {
     // MARK: - Dependencies
 
-    @Bindable var model: DataModel
+    @Bindable var model: CameraModel
     let settings: SettingsManager
     let selectedAspectRatio: AspectRatio
     let selectedCameraMode: CameraMode
