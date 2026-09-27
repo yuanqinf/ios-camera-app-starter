@@ -25,10 +25,8 @@ struct CameraBottomBar: View {
     @Binding var previewOpacity: Double
     @Binding var isModeSwitchingInProgress: Bool
     @Binding var showFreezeFrame: Bool
-    @Binding var cameraModeToast: CameraModeToastMessage?
     @Binding var thumbnailFeedbackType: ThumbnailFeedbackType?
     @Binding var savedAspectRatioForPhotoMode: AspectRatio?
-    @Binding var savedCaptureAssistModeForVideo: CaptureAssistMode?
     @Binding var modeSwitchUnblockTask: Task<Void, Never>?
     @Binding var toastMessage: ToastMessage?
 
@@ -36,7 +34,6 @@ struct CameraBottomBar: View {
 
     var onTakePhoto: () -> Void
     var onOpenGallery: () -> Void
-    var onCycleCaptureAssist: () -> Void
 
     // MARK: - Private State
 
@@ -122,12 +119,9 @@ struct CameraBottomBar: View {
 
     private var buttonsView: some View {
         HStack(spacing: 0) {
-            // Left: Thumbnail + Capture Assist
-            HStack(spacing: 12) {
-                galleryButton
-                captureAssistButton
-            }
-            .frame(width: 100, alignment: .leading)
+            // Left: Thumbnail
+            galleryButton
+                .frame(width: 100, alignment: .leading)
 
             Spacer()
 
@@ -250,45 +244,6 @@ struct CameraBottomBar: View {
         .accessibilityValue(model.camera.isFrontCamera ? "Front camera" : "Back camera")
     }
 
-    // MARK: - Capture Assist Button
-
-    private var isCaptureAssistAvailable: Bool {
-        selectedCameraMode == .photo
-    }
-
-    private let captureAssistIconSize: CGFloat = 72
-
-    private var captureAssistButtonColor: Color {
-        switch settings.captureAssistMode {
-        case .off: return .white
-        case .shotGuide: return .yellow
-        }
-    }
-
-    private var captureAssistButton: some View {
-        Button {
-            guard isCaptureAssistAvailable else { return }
-            onCycleCaptureAssist()
-            Haptics.light()
-        } label: {
-            ZStack {
-                // A spirit level: the assist is tilt guidance. Sized to match
-                // the flip-camera glyph; the frame below keeps the tap area.
-                Image(systemName: "level")
-                    .font(.system(size: 24, weight: .medium))
-                    .foregroundColor(isCaptureAssistAvailable ? captureAssistButtonColor : .gray)
-            }
-            .frame(width: captureAssistIconSize, height: captureAssistIconSize)
-            .contentShape(Circle())
-        }
-        .buttonStyle(CaptureAssistButtonStyle(isAvailable: isCaptureAssistAvailable))
-        .rotationEffect(uiRotationAngle)
-        .animation(.easeInOut(duration: 0.3), value: uiRotationAngle)
-        .animation(.easeInOut(duration: 0.2), value: settings.captureAssistMode)
-        .accessibilityLabel("Capture Assist")
-        .accessibilityValue(settings.captureAssistMode.displayName)
-    }
-
     // MARK: - Actions
 
     private func handleRecordVideo() {
@@ -324,19 +279,10 @@ struct CameraBottomBar: View {
                     settings.livePhotoEnabled = false
                     model.camera.setLivePhotoEnabled(false)
                 }
-
-                if settings.captureAssistMode != .off {
-                    savedCaptureAssistModeForVideo = settings.captureAssistMode
-                    settings.captureAssistMode = .off
-                }
             } else {
                 if let savedRatio = savedAspectRatioForPhotoMode {
                     selectedAspectRatio = savedRatio
                     savedAspectRatioForPhotoMode = nil
-                }
-                if let savedMode = savedCaptureAssistModeForVideo {
-                    settings.captureAssistMode = savedMode
-                    savedCaptureAssistModeForVideo = nil
                 }
             }
 
@@ -361,18 +307,5 @@ struct CameraBottomBar: View {
         if let url = URL(string: UIApplication.openSettingsURLString) {
             UIApplication.shared.open(url)
         }
-    }
-}
-
-// MARK: - Capture Assist Button Style
-
-private struct CaptureAssistButtonStyle: ButtonStyle {
-    let isAvailable: Bool
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.9 : 1.0)
-            .opacity(isAvailable ? (configuration.isPressed ? 0.8 : 1.0) : 0.4)
-            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
     }
 }

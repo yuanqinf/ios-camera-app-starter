@@ -7,34 +7,6 @@
 
 import Foundation
 
-
-/// Capture assist mode (Off → Shot Guide)
-enum CaptureAssistMode: Int, CaseIterable {
-    case off = 0        // No assistance
-    case shotGuide = 1  // Show tilt guidance only
-
-    /// Whether shot guide should be shown
-    var showsShotGuide: Bool {
-        self != .off
-    }
-
-    /// Cycle to next mode
-    func next() -> CaptureAssistMode {
-        let allCases = CaptureAssistMode.allCases
-        let currentIndex = allCases.firstIndex(of: self) ?? 0
-        let nextIndex = (currentIndex + 1) % allCases.count
-        return allCases[nextIndex]
-    }
-
-    /// Display name for accessibility
-    var displayName: String {
-        switch self {
-        case .off: return "Off"
-        case .shotGuide: return "Shot Guide"
-        }
-    }
-}
-
 /// User settings manager
 @Observable
 final class SettingsManager {
@@ -46,9 +18,6 @@ final class SettingsManager {
     // MARK: - Keys
 
     private enum Keys {
-        // Capture Assist Mode
-        static let captureAssistMode = "settings.captureAssistMode"
-
         // Detection
         static let trackingBoxEnabled = "settings.detection.trackingBox"
 
@@ -57,20 +26,6 @@ final class SettingsManager {
 
         // Live Photo
         static let livePhotoEnabled = "settings.livePhotoEnabled"
-    }
-
-    // MARK: - Capture Assist Mode
-
-    /// Capture assist mode (off / shotGuide)
-    var captureAssistMode: CaptureAssistMode {
-        didSet {
-            defaults.set(captureAssistMode.rawValue, forKey: Keys.captureAssistMode)
-        }
-    }
-
-    /// Convenience: whether shot guide should be shown
-    var shotGuideEnabled: Bool {
-        captureAssistMode.showsShotGuide
     }
 
     // MARK: - Detection Settings
@@ -107,7 +62,6 @@ final class SettingsManager {
         // Register default values
         // Note: Advanced features default to OFF for new users
         defaults.register(defaults: [
-            Keys.captureAssistMode: CaptureAssistMode.off.rawValue,
             Keys.trackingBoxEnabled: true,
             Keys.flashMode: "Auto",
             Keys.livePhotoEnabled: false
@@ -117,8 +71,5 @@ final class SettingsManager {
         trackingBoxEnabled = defaults.bool(forKey: Keys.trackingBoxEnabled)
         flashMode = defaults.string(forKey: Keys.flashMode) ?? "Auto"
         livePhotoEnabled = defaults.bool(forKey: Keys.livePhotoEnabled)
-
-        // Capture assist mode always resets to off on app launch
-        captureAssistMode = .off
     }
 }

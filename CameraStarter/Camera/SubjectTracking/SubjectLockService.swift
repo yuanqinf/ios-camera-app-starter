@@ -3,7 +3,7 @@
 //  CameraStarter
 //
 //  Main coordinator for subject lock and continuous focus tracking
-//  Works across all camera modes (default, shot guidance, video)
+//  Works in every camera mode
 //
 //  Design principles:
 //  - Lock on detected subject and maintain continuous focus
@@ -305,8 +305,7 @@ final class SubjectLockService {
         recentPositions.removeAll()
         stableStartTime = nil
 
-        // Use displayBoundingBox (prefers head, falls back to body)
-        let box = subject.displayBoundingBox
+        let box = subject.boundingBox
         let center = CGPoint(x: box.midX, y: box.midY)
         kalmanFilter.reset()
         kalmanFilter.update(measurement: center)
@@ -330,8 +329,7 @@ final class SubjectLockService {
     private func updateTracking(with subject: SubjectDetectionResult, at time: Date) {
         lastSeenTime = time
 
-        // Use displayBoundingBox (prefers head, falls back to body)
-        let box = subject.displayBoundingBox
+        let box = subject.boundingBox
         let center = CGPoint(x: box.midX, y: box.midY)
 
         // Update Kalman filter

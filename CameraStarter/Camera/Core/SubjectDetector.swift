@@ -52,54 +52,21 @@ actor DetectionThrottler {
     }
 }
 
-/// Eye detection result
-struct EyeDetection: Equatable, Sendable {
-    let position: CGPoint  // Normalized coordinates (0-1)
-    let type: String       // "Left eye" or "Right eye"
-
-    /// Check if eye position is within bounding box (sanity check)
-    func isWithin(_ boundingBox: CGRect) -> Bool {
-        return boundingBox.contains(position)
-    }
-}
-
 /// Subject detection result
 struct SubjectDetectionResult: Equatable, Sendable, Identifiable {
     let id: UUID  // Stable unique identifier (for UI tracking)
     let boundingBox: CGRect  // Subject bounding box (normalized coordinates 0-1)
-    let headBoundingBox: CGRect?  // Head bounding box (if head is detected)
     let confidence: Float    // Confidence score
     let animalType: String   // "cat" or "dog"
-    let eyes: [EyeDetection]  // 👀 Detected eyes (may be 0, 1, or 2)
 
     /// Convenience initializer (auto-generates ID)
-    init(boundingBox: CGRect, headBoundingBox: CGRect? = nil, confidence: Float, animalType: String, eyes: [EyeDetection] = [], id: UUID = UUID()) {
+    init(boundingBox: CGRect, confidence: Float, animalType: String, id: UUID = UUID()) {
         self.id = id
         self.boundingBox = boundingBox
-        self.headBoundingBox = headBoundingBox
         self.confidence = confidence
         self.animalType = animalType
-        self.eyes = eyes
     }
 
-    /// Display bounding box (prioritize head, fallback to full body)
-    /// Add sanity check: head box must be within full body box
-    var displayBoundingBox: CGRect {
-        guard let headBox = headBoundingBox else {
-            return boundingBox
-        }
-
-        // Check if head box is mostly within full body box (at least 70% overlap)
-        let intersection = boundingBox.intersection(headBox)
-        let headArea = headBox.width * headBox.height
-        let intersectionArea = intersection.width * intersection.height
-
-        if headArea > 0 && intersectionArea / headArea > 0.7 {
-            return headBox  // Head box is valid, use head box
-        } else {
-            return boundingBox  // Head box is invalid, use full body box
-        }
-    }
 }
 
 /// Vision detection output (for main thread use)
@@ -108,7 +75,6 @@ private struct VisionDetectionOutput: Sendable {
     let bestSubject: SubjectDetectionResult?
     let focusCandidate: CGPoint?
     let salientObjectBoundingBox: CGRect?
-    let isTrackingFrame: Bool  // true = lightweight tracking, false = full detection
 }
 
 /// Safely pass CVPixelBuffer across actors
@@ -127,8 +93,6 @@ private struct TrackedSubjectState {
     // Cached metadata from last full detection
     var cachedAnimalType: String
     var cachedConfidence: Float
-    var cachedHeadBoundingBox: CGRect?
-    var cachedEyes: [EyeDetection]
 }
 
 /// Vision pipeline (isolates Vision requests and throttling logic)
@@ -146,11 +110,6 @@ private actor VisionPipeline {
 
     private let animalRequest: VNRecognizeAnimalsRequest = {
         let request = VNRecognizeAnimalsRequest()
-        return request
-    }()
-
-    private let animalPoseRequest: VNDetectAnimalBodyPoseRequest = {
-        let request = VNDetectAnimalBodyPoseRequest()
         return request
     }()
 
@@ -197,7 +156,7 @@ private actor VisionPipeline {
         let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
 
         do {
-            try handler.perform([saliencyRequest, animalRequest, animalPoseRequest])
+            try handler.perform([saliencyRequest, animalRequest])
             modelsReady = true
         } catch {
             logger.warning("⚠️ Failed to preload Vision models: \(error.localizedDescription)")
@@ -210,8 +169,7 @@ private actor VisionPipeline {
         isFrontCamera: Bool,
         fastInterval: TimeInterval,
         normalInterval: TimeInterval,
-        slowInterval: TimeInterval,
-        skipPoseDetection: Bool = false
+        slowInterval: TimeInterval
     ) async -> VisionDetectionOutput? {
         // 🔑 Ensure models are preloaded (will wait on first call)
         if !modelsReady {
@@ -233,8 +191,7 @@ private actor VisionPipeline {
                 orientation: orientation,
                 fastInterval: fastInterval,
                 normalInterval: normalInterval,
-                slowInterval: slowInterval,
-                skipPoseDetection: skipPoseDetection
+                slowInterval: slowInterval
             )
             return result
         } else {
@@ -270,14 +227,13 @@ private actor VisionPipeline {
         return false
     }
 
-    /// Full ML detection (expensive: VNRecognizeAnimalsRequest + optional pose + saliency)
+    /// Full ML detection (expensive: VNRecognizeAnimalsRequest, then saliency when no animals)
     private func runFullDetection(
         pixelBufferBox: PixelBufferBox,
         orientation: CGImagePropertyOrientation,
         fastInterval: TimeInterval,
         normalInterval: TimeInterval,
-        slowInterval: TimeInterval,
-        skipPoseDetection: Bool
+        slowInterval: TimeInterval
     ) async -> VisionDetectionOutput? {
         let imageRequestHandler = VNImageRequestHandler(
             cvPixelBuffer: pixelBufferBox.buffer,
@@ -290,14 +246,7 @@ private actor VisionPipeline {
             try imageRequestHandler.perform([animalRequest])
             let animalResults = animalRequest.results ?? []
 
-            // 2) Only run pose detection when subjects are detected and not in power saving
-            var poseResults: [VNAnimalBodyPoseObservation] = []
-            if !animalResults.isEmpty && !skipPoseDetection {
-                try imageRequestHandler.perform([animalPoseRequest])
-                poseResults = animalPoseRequest.results ?? []
-            }
-
-            // 3) Only run saliency when no subjects detected, as focus fallback
+            // 2) Only run saliency when no subjects detected, as focus fallback
             var salientObjects: [VNDetectedObjectObservation] = []
             if animalResults.isEmpty {
                 try imageRequestHandler.perform([saliencyRequest])
@@ -311,21 +260,15 @@ private actor VisionPipeline {
             var allSubjectDetections: [SubjectDetectionResult] = []
 
             if !animalResults.isEmpty {
-                for (index, animal) in animalResults.enumerated() {
+                for animal in animalResults {
                     guard animal.confidence > minSubjectConfidenceThreshold else { continue }
 
                     let animalType = animal.labels.first?.identifier ?? "unknown"
-                    let matchingPose = index < poseResults.count ? poseResults[index] : nil
-                    let allEyes = extractEyes(from: matchingPose)
-                    let headBox = extractHeadBoundingBox(from: matchingPose)
-                    let validEyes = allEyes.filter { animal.boundingBox.contains($0.position) }
 
                     await allSubjectDetections.append(SubjectDetectionResult(
                         boundingBox: animal.boundingBox,
-                        headBoundingBox: headBox,
                         confidence: animal.confidence,
-                        animalType: animalType,
-                        eyes: validEyes
+                        animalType: animalType
                     ))
                 }
             }
@@ -339,7 +282,7 @@ private actor VisionPipeline {
             // Determine focus point
             var focusCenter: CGPoint? = nil
             if let subjectResult = subjectDetectionResult {
-                focusCenter = getBestFocusPoint(eyes: subjectResult.eyes, boundingBox: subjectResult.boundingBox)
+                focusCenter = CGPoint(x: subjectResult.boundingBox.midX, y: subjectResult.boundingBox.midY)
             } else if let mostSalient = salientObjects.max(by: { $0.confidence < $1.confidence }),
                       mostSalient.confidence > minConfidenceThreshold {
                 focusCenter = CGPoint(x: mostSalient.boundingBox.midX, y: mostSalient.boundingBox.midY)
@@ -365,8 +308,7 @@ private actor VisionPipeline {
                 subjectDetections: allSubjectDetections,
                 bestSubject: subjectDetectionResult,
                 focusCandidate: focusCenter,
-                salientObjectBoundingBox: salientObjectBox,
-                isTrackingFrame: false
+                salientObjectBoundingBox: salientObjectBox
             )
         } catch {
             logger.error("Vision detection error: \(error.localizedDescription)")
@@ -419,10 +361,8 @@ private actor VisionPipeline {
 
                 await allSubjectDetections.append(SubjectDetectionResult(
                     boundingBox: updatedObservation.boundingBox,
-                    headBoundingBox: nil,  // No head box during tracking (pose not run)
                     confidence: blendedConfidence,
                     animalType: subject.cachedAnimalType,
-                    eyes: [],  // No eyes during tracking (pose not run)
                     id: subject.id
                 ))
             } catch {
@@ -441,7 +381,7 @@ private actor VisionPipeline {
         // Select best subject for focus
         let subjectDetectionResult = selectBestSubjectForFocus(from: allSubjectDetections)
 
-        // Focus uses bounding box center during tracking (no eyes available)
+        // Focus uses the bounding box center during tracking
         var focusCenter: CGPoint? = nil
         if let subjectResult = subjectDetectionResult {
             focusCenter = CGPoint(x: subjectResult.boundingBox.midX, y: subjectResult.boundingBox.midY)
@@ -459,8 +399,7 @@ private actor VisionPipeline {
             subjectDetections: allSubjectDetections,
             bestSubject: subjectDetectionResult,
             focusCandidate: focusCenter,
-            salientObjectBoundingBox: nil,  // No saliency during tracking
-            isTrackingFrame: true
+            salientObjectBoundingBox: nil  // No saliency during tracking
         )
     }
 
@@ -490,9 +429,7 @@ private actor VisionPipeline {
                 trackRequest: trackRequest,
                 lastTrackingConfidence: Float(animal.confidence),
                 cachedAnimalType: subject.animalType,
-                cachedConfidence: animal.confidence,
-                cachedHeadBoundingBox: subject.headBoundingBox,
-                cachedEyes: subject.eyes
+                cachedConfidence: animal.confidence
             ))
         }
     }
@@ -504,102 +441,7 @@ private actor VisionPipeline {
         sequenceHandler = VNSequenceRequestHandler()
     }
 
-    // MARK: - Pose Position Extraction
-
-    /// Extract all detected eyes from animal pose
-    /// Returns: Array of detected eyes (may be 0, 1, or 2)
-    private func extractEyes(from pose: VNAnimalBodyPoseObservation?) -> [EyeDetection] {
-        var eyes: [EyeDetection] = []
-
-        guard let pose = pose else { return eyes }
-
-        // Try to get left eye
-        if let leftEye = try? pose.recognizedPoint(.leftEye),
-           leftEye.confidence > 0.3 {
-            eyes.append(EyeDetection(position: leftEye.location, type: "Left eye"))
-        }
-
-        // Try to get right eye
-        if let rightEye = try? pose.recognizedPoint(.rightEye),
-           rightEye.confidence > 0.3 {
-            eyes.append(EyeDetection(position: rightEye.location, type: "Right eye"))
-        }
-
-        return eyes
-    }
-
-    /// Extract head bounding box from animal pose
-    /// Based on eye and nose positions, with appropriate padding
-    private func extractHeadBoundingBox(from pose: VNAnimalBodyPoseObservation?) -> CGRect? {
-        guard let pose = pose else { return nil }
-
-        let headPoints = getHeadPoints(from: pose)
-        guard headPoints.count >= 2 else { return nil }  // Need at least 2 points to form bounding box
-
-        // Calculate bounds of head key points (use safe binding to prevent crashes from empty arrays)
-        guard
-            let minX = headPoints.map(\.x).min(),
-            let maxX = headPoints.map(\.x).max(),
-            let minY = headPoints.map(\.y).min(),
-            let maxY = headPoints.map(\.y).max()
-        else { return nil }
-
-        // Add padding (expand head boundary by 50%)
-        let width = maxX - minX
-        let height = maxY - minY
-        let paddingX = max(width * 0.5, 0.05)  // At least 5% padding
-        let paddingY = max(height * 0.5, 0.05)
-
-        return CGRect(
-            x: max(0, minX - paddingX),
-            y: max(0, minY - paddingY),
-            width: min(1, width + paddingX * 2),
-            height: min(1, height + paddingY * 2)
-        )
-    }
-
-    /// Get head key points
-    private func getHeadPoints(from pose: VNAnimalBodyPoseObservation) -> [CGPoint] {
-        var headPoints: [CGPoint] = []
-        let minConfidence: Float = 0.3
-
-        if let leftEye = try? pose.recognizedPoint(.leftEye), leftEye.confidence > minConfidence {
-            headPoints.append(leftEye.location)
-        }
-        if let rightEye = try? pose.recognizedPoint(.rightEye), rightEye.confidence > minConfidence {
-            headPoints.append(rightEye.location)
-        }
-        if let nose = try? pose.recognizedPoint(.nose), nose.confidence > minConfidence {
-            headPoints.append(nose.location)
-        }
-
-        return headPoints
-    }
-
-    /// Get best focus point
-    /// Priority: midpoint between two eyes → single eye → body center
-    private func getBestFocusPoint(
-        eyes: [EyeDetection],
-        boundingBox: CGRect
-    ) -> CGPoint {
-        // 1. Priority: midpoint between two eyes (most accurate)
-        if eyes.count >= 2 {
-            let leftEye = eyes[0].position
-            let rightEye = eyes[1].position
-            return CGPoint(
-                x: (leftEye.x + rightEye.x) / 2.0,
-                y: (leftEye.y + rightEye.y) / 2.0
-            )
-        }
-
-        // 2. Secondary: single eye position
-        if let singleEye = eyes.first {
-            return singleEye.position
-        }
-
-        // 3. Fallback: body center (bounding box center)
-        return CGPoint(x: boundingBox.midX, y: boundingBox.midY)
-    }
+    // MARK: - Focus Selection
 
     /// Select best subject for focus from multiple subjects
     /// Priority: center region > confidence > size
@@ -632,7 +474,7 @@ class SubjectDetector: NSObject {
     // Auto-focus callback (triggered when new subject is detected)
     var onAutoFocus: ((CGPoint) -> Void)?
 
-    // Subject detection callback (for displaying subject bounding boxes and angle guidance)
+    // Subject detection callback (for the tracking boxes)
     // Parameters: (all subjects, primary subject ID) - nil means no subjects detected
     var onSubjectsDetected: (([SubjectDetectionResult], UUID?) -> Void)?
 
@@ -657,11 +499,6 @@ class SubjectDetector: NSObject {
     @MainActor private var portraitSubjectLastSeenTime: Date = .distantPast
     private let portraitGraceDuration: TimeInterval = 3.0  // Portrait grace period: 3 seconds (Vision detection sometimes misses multiple frames)
 
-    // Head box stability control (prevent frequent switching between head and body boxes)
-    @MainActor private var lastValidHeadBox: CGRect? = nil  // Last valid head box
-    @MainActor private var headBoxDisappearCount: Int = 0  // Frames since head box disappeared
-    private let headBoxGracePeriod: Int = 8  // Head box grace period: 8 consecutive frames (~400ms) without head box before switching to body box
-
     // Used to detect subject position changes and trigger bounding box re-display
     @MainActor private var lastDisplayedBoundingBox: CGRect? = nil
 
@@ -676,10 +513,6 @@ class SubjectDetector: NSObject {
     private let fastInterval: TimeInterval = 0.1      // 100ms (~10fps) - when subject detected (tracking frames ~15ms each)
     private let normalInterval: TimeInterval = 0.5    // 500ms (~2fps) - when no subject detected (all detection frames)
     private let slowInterval: TimeInterval = 1.0      // 1s (~1fps) - when no subject for long time
-
-    /// Whether Shot Guide needs pose detection (eyes/head tracking)
-    /// When false, skips pose detection during re-detection frames
-    var needsHighFrequencyDetection: Bool = false
 
     /// Lightweight main-thread throttle to avoid spawning Tasks that the actor throttler would reject
     private var lastDetectionDispatchTime: CFAbsoluteTime = 0
@@ -739,18 +572,16 @@ class SubjectDetector: NSObject {
         let fast = fastInterval
         let normal = normalInterval
         let slow = slowInterval
-        let skipPose = !needsHighFrequencyDetection  // Only need pose detection for Shot Guide eye tracking
         let pipeline = visionPipeline
         let pixelBufferBox = PixelBufferBox(buffer: pixelBuffer)
 
-        Task.detached(priority: .userInitiated) { [weak self, pixelBufferBox, pipeline, fast, normal, slow, skipPose, isFrontCamera] in
+        Task.detached(priority: .userInitiated) { [weak self, pixelBufferBox, pipeline, fast, normal, slow, isFrontCamera] in
             let detectionResult = await pipeline.processFrame(
                 pixelBufferBox: pixelBufferBox,
                 isFrontCamera: isFrontCamera,
                 fastInterval: fast,
                 normalInterval: normal,
-                slowInterval: slow,
-                skipPoseDetection: skipPose
+                slowInterval: slow
             )
 
             guard let detectionResult = detectionResult else { return }
@@ -766,7 +597,7 @@ class SubjectDetector: NSObject {
     @MainActor
     private func handleDetectionResult(_ detectionResult: VisionDetectionOutput, pixelBuffer: CVPixelBuffer? = nil) {
         // First update stable subject detection (will update lastAllSubjectDetections for UI)
-        updateStableSubjectDetection(allSubjects: detectionResult.subjectDetections, primarySubject: detectionResult.bestSubject, isTrackingFrame: detectionResult.isTrackingFrame)
+        updateStableSubjectDetection(allSubjects: detectionResult.subjectDetections, primarySubject: detectionResult.bestSubject)
 
         // Portrait uses independent cache and longer grace period
         // 🔑 Key: Portrait has its own fault tolerance mechanism, independent from UI bounding boxes
@@ -799,47 +630,14 @@ class SubjectDetector: NSObject {
 
     /// Subject detection logic (iPhone native camera style, multi-subject support)
     /// - Subjects detected → show bounding boxes for all subjects
-    /// - Primary subject (focus target) shows eye indicator
     /// - Subjects disappear → hide bounding boxes
     @MainActor
-    private func updateStableSubjectDetection(allSubjects: [SubjectDetectionResult], primarySubject: SubjectDetectionResult?, isTrackingFrame: Bool = false) {
+    private func updateStableSubjectDetection(allSubjects: [SubjectDetectionResult], primarySubject: SubjectDetectionResult?) {
         if !allSubjects.isEmpty, let newSubject = primarySubject {
             // Subjects detected → reset disappearance counter
             subjectDisappearanceCount = 0
 
-            // 🎯 Handle head box stability for primary subject
-            var stableHeadBox: CGRect? = nil
-
-            if let currentHeadBox = newSubject.headBoundingBox {
-                let isHeadBoxValid = isHeadBoxWithinBody(headBox: currentHeadBox, bodyBox: newSubject.boundingBox)
-                if isHeadBoxValid {
-                    lastValidHeadBox = currentHeadBox
-                    headBoxDisappearCount = 0
-                    stableHeadBox = currentHeadBox
-                }
-            } else if isTrackingFrame {
-                // During tracking frames, nil head/eyes is expected (pose not run)
-                // Preserve last known head box without incrementing disappear count
-                stableHeadBox = lastValidHeadBox
-            } else {
-                headBoxDisappearCount += 1
-                if headBoxDisappearCount < headBoxGracePeriod, let lastHead = lastValidHeadBox {
-                    stableHeadBox = lastHead
-                } else {
-                    lastValidHeadBox = nil
-                }
-            }
-
-            // Create stable primary subject detection result (with head box and eyes)
-            let stablePrimarySubject = SubjectDetectionResult(
-                boundingBox: newSubject.boundingBox,
-                headBoundingBox: stableHeadBox,
-                confidence: newSubject.confidence,
-                animalType: newSubject.animalType,
-                eyes: newSubject.eyes
-            )
-
-            // Process all subjects (non-primary subjects don't show eyes)
+            // Process all subjects
             // Use nearest distance matching algorithm to keep ID stable, prevent UI jumping
             let matchedIDs = matchSubjectsWithIDs(newSubjects: allSubjects)
             var stableAllSubjects: [SubjectDetectionResult] = []
@@ -850,25 +648,19 @@ class SubjectDetector: NSObject {
                 let subjectID = matchedIDs[index]
 
                 if isPrimary {
-                    // Primary subject - use stable version with head box and eyes
                     let stableSubject = SubjectDetectionResult(
-                        boundingBox: stablePrimarySubject.boundingBox,
-                        headBoundingBox: stablePrimarySubject.headBoundingBox,
-                        confidence: stablePrimarySubject.confidence,
-                        animalType: stablePrimarySubject.animalType,
-                        eyes: stablePrimarySubject.eyes,
+                        boundingBox: newSubject.boundingBox,
+                        confidence: newSubject.confidence,
+                        animalType: newSubject.animalType,
                         id: subjectID
                     )
                     stableAllSubjects.append(stableSubject)
                     currentPrimaryID = subjectID
                 } else {
-                    // Other subjects - only show bounding box, no eyes
                     let otherSubject = SubjectDetectionResult(
                         boundingBox: subject.boundingBox,
-                        headBoundingBox: nil,
                         confidence: subject.confidence,
                         animalType: subject.animalType,
-                        eyes: [],
                         id: subjectID
                     )
                     stableAllSubjects.append(otherSubject)
@@ -878,7 +670,7 @@ class SubjectDetector: NSObject {
             // Update primary subject ID
             primarySubjectID = currentPrimaryID
 
-            let currentBox = stablePrimarySubject.displayBoundingBox
+            let currentBox = newSubject.boundingBox
 
             // Accumulate stability counter (for initial detection only)
             if subjectDetectionStableCount < stableThreshold {
@@ -910,8 +702,6 @@ class SubjectDetector: NSObject {
                 // Reset state
                 subjectDetectionStableCount = 0
                 lastDisplayedBoundingBox = nil
-                lastValidHeadBox = nil
-                headBoxDisappearCount = 0
                 lastAllSubjectDetections = []
                 primarySubjectID = nil
             }
@@ -1007,18 +797,6 @@ class SubjectDetector: NSObject {
         return result
     }
 
-    /// Check if head box is reasonably located within body box
-private func isHeadBoxWithinBody(headBox: CGRect, bodyBox: CGRect) -> Bool {
-    // Head box should have significant overlap with body box
-    let intersection = headBox.intersection(bodyBox)
-    if intersection.isNull { return false }
-
-    let headArea = headBox.width * headBox.height
-    let intersectionArea = intersection.width * intersection.height
-
-    // Head box should have at least 50% overlap with body box
-    return intersectionArea / headArea >= 0.5
-}
 }
 
 // Main thread isolated class, needs Sendable declaration when used for weak reference capture

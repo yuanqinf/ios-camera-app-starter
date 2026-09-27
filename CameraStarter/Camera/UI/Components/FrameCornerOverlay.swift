@@ -7,12 +7,6 @@
 
 import SwiftUI
 
-/// Corner decoration mode
-enum CornerDecorationMode: Equatable {
-    case normal          // White corners (default)
-    case shotGuide       // Yellow gradient corners
-}
-
 /// Frame corner decoration view (L-shaped lines)
 struct FrameCornerOverlay: View {
     /// Aspect ratio (optional, used to adjust corner positions)
@@ -23,9 +17,6 @@ struct FrameCornerOverlay: View {
 
     /// Container height (4:3 preview height)
     var containerHeight: CGFloat = 0
-
-    /// Corner decoration mode
-    var mode: CornerDecorationMode = .normal
 
     /// Hide all corners (for video mode - no frame indicators)
     var isHidden: Bool = false
@@ -50,8 +41,7 @@ struct FrameCornerOverlay: View {
                     CornerView(
                         corner: .topLeft,
                         lineLength: lineLength,
-                        lineWidth: lineWidth,
-                        mode: mode
+                        lineWidth: lineWidth
                     )
                     Spacer()
                 }
@@ -66,8 +56,7 @@ struct FrameCornerOverlay: View {
                     CornerView(
                         corner: .topRight,
                         lineLength: lineLength,
-                        lineWidth: lineWidth,
-                        mode: mode
+                        lineWidth: lineWidth
                     )
                 }
                 Spacer()
@@ -81,8 +70,7 @@ struct FrameCornerOverlay: View {
                     CornerView(
                         corner: .bottomLeft,
                         lineLength: lineLength,
-                        lineWidth: lineWidth,
-                        mode: mode
+                        lineWidth: lineWidth
                     )
                     Spacer()
                 }
@@ -97,8 +85,7 @@ struct FrameCornerOverlay: View {
                     CornerView(
                         corner: .bottomRight,
                         lineLength: lineLength,
-                        lineWidth: lineWidth,
-                        mode: mode
+                        lineWidth: lineWidth
                     )
                 }
             }
@@ -106,7 +93,6 @@ struct FrameCornerOverlay: View {
         }
         .opacity(isHidden ? 0 : 1)
         .animation(.easeInOut(duration: 0.8), value: aspectRatio)
-        .animation(.easeInOut(duration: 0.8), value: mode)
         .animation(.easeInOut(duration: 0.8), value: isHidden)
     }
 }
@@ -123,33 +109,15 @@ private struct CornerView: View {
     let corner: CornerPosition
     let lineLength: CGFloat
     let lineWidth: CGFloat
-    let mode: CornerDecorationMode
-
-    /// Yellow gradient for active modes (native camera style)
-    private let yellowGradient = LinearGradient(
-        colors: [.yellow],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-    )
-
-    /// Get the appropriate gradient based on mode
-    private var activeGradient: LinearGradient {
-        switch mode {
-        case .normal:
-            return LinearGradient(colors: [.white], startPoint: .top, endPoint: .bottom)
-        case .shotGuide:
-            return yellowGradient
-        }
-    }
 
     var body: some View {
         // Main corner stroke
         cornerShape
             .stroke(
-                activeGradient,
+                Color.white,
                 style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round)
             )
-            .opacity(mode == .normal ? 0.9 : 1.0)
+            .opacity(0.9)
             .frame(width: lineLength, height: lineLength)
     }
 
@@ -188,7 +156,7 @@ private struct CornerView: View {
 
 // MARK: - Preview
 
-#Preview("Normal Mode") {
+#Preview {
     ZStack {
         Color.black.ignoresSafeArea()
 
@@ -196,23 +164,8 @@ private struct CornerView: View {
             .fill(Color.gray.opacity(0.3))
             .frame(width: 300, height: 400)
             .overlay {
-                FrameCornerOverlay(mode: .normal)
+                FrameCornerOverlay()
                     .padding(16)
             }
     }
 }
-
-#Preview("Shot Guide Mode") {
-    ZStack {
-        Color.black.ignoresSafeArea()
-
-        Rectangle()
-            .fill(Color.gray.opacity(0.3))
-            .frame(width: 300, height: 400)
-            .overlay {
-                FrameCornerOverlay(mode: .shotGuide)
-                    .padding(16)
-            }
-    }
-}
-

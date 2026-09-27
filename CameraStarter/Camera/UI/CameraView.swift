@@ -42,19 +42,11 @@ struct CameraView: View {
     // Subject attention sound button animation
     @State private var isSoundButtonPressed = false
 
-    // Shot guide feature
-    // Note: DeviceMotionManager is @Observable singleton, @State used for same reasons as SettingsManager
-    @State private var motionManager = DeviceMotionManager.shared
-
-    // Unified Guidance
-    @State private var unifiedGuidance = UnifiedGuidanceService()
-
     // Aspect ratio
     @State private var selectedAspectRatio: AspectRatio = .ratio4_3
 
     // Subject detection bounding boxes (supports multiple subjects)
     @State private var currentSubjectDetections: [SubjectDetectionResult] = []
-    @State private var primarySubjectID: UUID? = nil  // Primary subject ID for focus
 
     // Privacy protection mask (App Switcher black screen)
     @State private var showPrivacyScreen = false
@@ -82,14 +74,8 @@ struct CameraView: View {
     // Tab switch transition overlay (hides stale preview frame)
     @State private var showTabTransitionOverlay = false
 
-    // Camera mode toast (quick feedback when switching modes)
-    @State private var cameraModeToast: CameraModeToastMessage?
-
     // Thumbnail feedback animation
     @State private var thumbnailFeedbackType: ThumbnailFeedbackType?
-
-    // Saved capture assist mode for video mode switch (restored when switching back to photo mode)
-    @State private var savedCaptureAssistModeForVideo: CaptureAssistMode?
 
     // Camera mode (Photo/Video)
     @State private var selectedCameraMode: CameraMode = .photo
@@ -117,9 +103,6 @@ struct CameraView: View {
     @State private var orientationStabilityCount: Int = 0
     @State private var pendingOrientation: UIDeviceOrientation?
 
-    // Guidance update throttle task (prevents excessive onChange calls)
-    @State private var guidanceUpdateTask: Task<Void, Never>?
-
     // Calculate UI element rotation angle (based on physical device orientation)
     private var uiRotationAngle: Angle {
         switch devicePhysicalOrientation {
@@ -132,18 +115,6 @@ struct CameraView: View {
         default:
             return .zero
         }
-    }
-
-    /// Consolidated trigger for guidance updates
-    /// Combines multiple state changes into single onChange handler
-    /// This reduces redundant update cycles when multiple states change simultaneously
-    private var guidanceUpdateTrigger: Int {
-        var hasher = Hasher()
-        hasher.combine(motionManager.updateTrigger)
-        hasher.combine(currentSubjectDetections.count)
-        hasher.combine(model.camera.isAdjustingFocus)
-        hasher.combine(model.camera.isPortraitConditionStable)
-        return hasher.finalize()
     }
 
     var body: some View {
@@ -187,9 +158,6 @@ struct CameraView: View {
                             showTabTransitionOverlay: showTabTransitionOverlay,
                             showPrivacyScreen: showPrivacyScreen,
                             showShutterFlash: showShutterFlash,
-                            cornerDecorationMode: cornerDecorationMode,
-                            unifiedGuidance: unifiedGuidance,
-                            devicePhysicalOrientation: devicePhysicalOrientation,
                             manualFocusPoint: $manualFocusPoint,
                             showManualFocusIndicator: $showManualFocusIndicator,
                             selectedZoom: $selectedZoom,
@@ -220,15 +188,12 @@ struct CameraView: View {
                                 previewOpacity: $previewOpacity,
                                 isModeSwitchingInProgress: $isModeSwitchingInProgress,
                                 showFreezeFrame: $showFreezeFrame,
-                                cameraModeToast: $cameraModeToast,
                                 thumbnailFeedbackType: $thumbnailFeedbackType,
                                 savedAspectRatioForPhotoMode: $savedAspectRatioForPhotoMode,
-                                savedCaptureAssistModeForVideo: $savedCaptureAssistModeForVideo,
                                 modeSwitchUnblockTask: $modeSwitchUnblockTask,
                                 toastMessage: $toastMessage,
                                 onTakePhoto: { handleTakePhoto() },
-                                onOpenGallery: openPhotosApp,
-                                onCycleCaptureAssist: { cycleCaptureAssistMode() }
+                                onOpenGallery: openPhotosApp
                             )
                             .frame(height: bottomControlsHeight)
                             .background(Color.clear)
@@ -278,36 +243,12 @@ struct CameraView: View {
                 }
             }
             .onDisappear {
-                // Stop device motion monitoring and camera (modal dismiss or view destruction)
-                motionManager.stopMonitoring()
+                // Stop orientation monitoring and camera (modal dismiss or view destruction)
                 orientationMotionManager.stopDeviceMotionUpdates()
                 model.timer.cancelCountdown()
                 model.camera.stop()
-                guidanceUpdateTask?.cancel()
-                guidanceUpdateTask = nil
                 // Dismiss welcome toast when switching views
                 toastMessage = nil
-            }
-            .onChange(of: settings.captureAssistMode) { oldMode, newMode in
-                // Capture assist mode changed
-                if newMode.showsShotGuide {
-                    // Enable shot guide: start monitoring and immediately update guidance
-                    motionManager.currentDeviceOrientation = devicePhysicalOrientation
-                    motionManager.startMonitoring()
-                    updateUnifiedGuidance()
-                    // Enable high-frequency detection for real-time tracking
-                    model.camera.subjectDetector.needsHighFrequencyDetection = true
-                } else {
-                    // Disable: stop monitoring
-                    motionManager.stopMonitoring()
-                    // Use low-frequency detection (sufficient for basic focus)
-                    model.camera.subjectDetector.needsHighFrequencyDetection = false
-                }
-            }
-            .onChange(of: guidanceUpdateTrigger) { oldValue, newValue in
-                // Consolidated guidance update trigger
-                // Combines: motionManager.updateTrigger, currentSubjectDetections, isAdjustingFocus, isPortraitConditionStable
-                scheduleGuidanceUpdate()
             }
             .onChange(of: scenePhase) { oldPhase, newPhase in
                 handleScenePhaseChange(newPhase)
@@ -321,17 +262,11 @@ struct CameraView: View {
                 // Back camera: device 2.0x → UI 1x
                 // Front camera: device 1.0x
                 selectedZoom = model.camera.currentZoomFactor / 2.0
-
-                // Update guidance when switching cameras (tilt direction may be inverted for front camera)
-                if settings.captureAssistMode.showsShotGuide {
-                    updateUnifiedGuidance()
-                }
             }
             .onChange(of: isActiveTab) { wasActive, isActive in
                 // Handle tab becoming inactive - stop camera to save resources
                 // Note: Restart is handled by .task(id: isActiveTab)
                 if !isActive {
-                    motionManager.stopMonitoring()
                     model.timer.cancelCountdown()
                     model.camera.stop()
                     // Show overlay immediately when leaving (no animation)
@@ -356,7 +291,6 @@ struct CameraView: View {
                 }
             }
             .toast($toastMessage)
-            .cameraModeToast($cameraModeToast)
         }
     }
 
@@ -414,10 +348,10 @@ struct CameraView: View {
     }
 
 
-    // MARK: - Shot Guide
+    // MARK: - Subject Detection
 
-    private func setupShotGuide() {
-        // Setup SubjectDetector subject detection callback (for displaying bounding boxes and guidance)
+    private func setupSubjectDetection() {
+        // Setup SubjectDetector subject detection callback (for the tracking boxes and tap-to-lock)
         // Note: SwiftUI Views are structs (value types), so no weak self needed
         model.camera.subjectDetector.onSubjectsDetected = { subjectResults, primaryID in
             Task { @MainActor in
@@ -427,51 +361,9 @@ struct CameraView: View {
 
                 withAnimation(AppAnimation.imageFade) {
                     self.currentSubjectDetections = subjectResults
-                    self.primarySubjectID = primaryID
                 }
             }
         }
-    }
-
-    /// Schedule throttled guidance update (coalesces multiple onChange calls)
-    /// This prevents excessive updates when multiple sources trigger simultaneously
-    private func scheduleGuidanceUpdate() {
-        // Cancel any pending update
-        guidanceUpdateTask?.cancel()
-
-        // Schedule new update with minimal delay to coalesce rapid changes
-        guidanceUpdateTask = Task { @MainActor in
-            // Delay to coalesce multiple simultaneous onChange triggers
-            // 16ms ≈ 60Hz max, sufficient for smooth UI updates
-            try? await Task.sleep(nanoseconds: 16_000_000)
-            guard !Task.isCancelled else { return }
-            updateUnifiedGuidance()
-        }
-    }
-
-    private func updateUnifiedGuidance() {
-        guard settings.shotGuideEnabled else { return }
-
-        // Get primary subject's framing info
-        let subjectFraming: SubjectFramingInfo?
-        if let primarySubject = currentSubjectDetections.first(where: { $0.id == primarySubjectID }) ?? currentSubjectDetections.first {
-            subjectFraming = SubjectFramingInfo(boundingBox: primarySubject.boundingBox)
-        } else {
-            subjectFraming = nil
-        }
-
-        // Build unified guidance input
-        let input = UnifiedGuidanceInput(
-            tiltState: motionManager.tiltState,
-            subjectDetected: !currentSubjectDetections.isEmpty,
-            subjectFraming: subjectFraming,
-            isFocusReady: !model.camera.isAdjustingFocus,
-            isSubjectStable: model.camera.isPortraitConditionStable,
-            isFrontCamera: model.camera.isFrontCamera
-        )
-
-        // Update guidance (handles animation internally)
-        unifiedGuidance.update(with: input)
     }
 
     /// Setup callbacks for photo/video saves
@@ -556,9 +448,6 @@ struct CameraView: View {
             Task {
                 do {
                     try await model.camera.start()
-                    if settings.shotGuideEnabled {
-                        motionManager.startMonitoring()
-                    }
                     // Reload thumbnail in case photos were deleted externally (e.g., in Photos app)
                     await model.loadLatestThumbnail()
 
@@ -581,14 +470,12 @@ struct CameraView: View {
             showPrivacyScreen = true
             model.timer.cancelCountdown()
             model.camera.stop()
-            motionManager.stopMonitoring()
 
         case .background:
             // App fully enters background
             showPrivacyScreen = true
             model.timer.cancelCountdown()
             model.camera.stop()
-            motionManager.stopMonitoring()
 
         @unknown default:
             break
@@ -633,39 +520,6 @@ struct CameraView: View {
                 showManualFocusIndicator = false
                 manualFocusPoint = nil
             }
-        }
-    }
-
-    /// Corner decoration mode based on capture assist mode
-    private var cornerDecorationMode: CornerDecorationMode {
-        switch settings.captureAssistMode {
-        case .off:
-            return .normal
-        case .shotGuide:
-            return .shotGuide
-        }
-    }
-
-    /// Cycle through capture assist modes
-    private func cycleCaptureAssistMode() {
-        let newMode = settings.captureAssistMode.next()
-        settings.captureAssistMode = newMode
-
-        // Start/stop motion monitoring based on shot guide
-        if newMode.showsShotGuide {
-            motionManager.currentDeviceOrientation = devicePhysicalOrientation
-            motionManager.startMonitoring()
-            updateUnifiedGuidance()
-        } else {
-            motionManager.stopMonitoring()
-        }
-
-        // Show toast feedback
-        switch newMode {
-        case .off:
-            cameraModeToast = .captureAssistOff
-        case .shotGuide:
-            cameraModeToast = .shotGuide
         }
     }
 
@@ -828,7 +682,6 @@ struct CameraView: View {
                     devicePhysicalOrientation = newOrientation
                     orientationStabilityCount = 0
                     pendingOrientation = nil
-                    motionManager.currentDeviceOrientation = newOrientation
                 }
             } else {
                 pendingOrientation = newOrientation
@@ -845,7 +698,7 @@ struct CameraView: View {
         await model.loadLatestThumbnail()
 
         // Setup subject detection callback
-        setupShotGuide()
+        setupSubjectDetection()
 
         // Setup photo save callback, auto add to gallery
         setupPhotoAutoImport()
@@ -854,17 +707,6 @@ struct CameraView: View {
         // Device 2.0x → UI 1x
         selectedZoom = model.camera.currentZoomFactor / 2.0
 
-        // Start device motion monitoring
-        if settings.shotGuideEnabled {
-            // Sync initial device orientation
-            motionManager.currentDeviceOrientation = devicePhysicalOrientation
-            motionManager.startMonitoring()
-            // Immediately update guidance based on current device attitude
-            updateUnifiedGuidance()
-            // Enable high-frequency detection for real-time tracking
-            model.camera.subjectDetector.needsHighFrequencyDetection = true
-        }
-        // Default: low-frequency detection (needsHighFrequencyDetection = false)
 
         // Sync Live Photo state from persisted settings
         model.camera.setLivePhotoEnabled(settings.livePhotoEnabled)

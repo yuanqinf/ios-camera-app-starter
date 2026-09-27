@@ -13,8 +13,6 @@
 /* camera */
 "camera.error.title" = "Camera Error";
 "camera.photos" = "Photos";
-"camera.mode.assist.off" = "Assist Off";
-"camera.mode.shot.guide" = "Shot Guide";
 "camera.permission.body" = "Allow camera access to take photos and videos.";
 "camera.permission.camera.description" = "Take photos and videos";
 "camera.permission.camera.title" = "Camera";
@@ -31,12 +29,6 @@
 "common.ok" = "OK";
 "common.settings" = "Settings";
 
-/* guidance */
-"guidance.angle.hint" = "Try shooting from your subject's eye level";
-"guidance.hint.adjusting" = "Adjust the camera as shown";
-"guidance.hint.preparing" = "Getting ready";
-"guidance.hint.ready" = "Ready to take a photo";
-"guidance.hint.searching" = "Point the camera at your subject";
 
 /* permission */
 "permission.continue" = "Continue";

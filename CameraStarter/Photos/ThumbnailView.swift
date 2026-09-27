@@ -71,9 +71,9 @@ struct ThumbnailView: View {
                     .allowedDynamicRange(.high)  // Enable HDR display
                     .blur(radius: isProcessing ? 2 : 0)
             } else {
-                // No image - show placeholder
+                // No image yet - an empty album
                 Color.appSecondaryBackground
-                Image(systemName: "pawprint.fill")
+                Image(systemName: "photo")
                     .font(.system(size: 20))
                     .foregroundColor(.appPrimaryColor.opacity(0.6))
             }

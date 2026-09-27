@@ -21,9 +21,6 @@ struct CameraPreviewArea: View {
     let showTabTransitionOverlay: Bool
     let showPrivacyScreen: Bool
     let showShutterFlash: Bool
-    let cornerDecorationMode: CornerDecorationMode
-    let unifiedGuidance: UnifiedGuidanceService
-    let devicePhysicalOrientation: UIDeviceOrientation
 
     // MARK: - Bindings
 
@@ -99,7 +96,6 @@ struct CameraPreviewArea: View {
                     aspectRatio: selectedAspectRatio,
                     containerWidth: screenWidth,
                     containerHeight: basePreviewHeight,
-                    mode: cornerDecorationMode,
                     isHidden: selectedCameraMode == .video
                 )
                 .padding(1)
@@ -133,11 +129,6 @@ struct CameraPreviewArea: View {
                 if model.timer.isCountingDown {
                     TimerCountdownView(remainingSeconds: model.timer.remainingSeconds)
                         .transition(.opacity)
-                }
-
-                // Unified guidance overlay
-                if settings.shotGuideEnabled {
-                    unifiedGuidanceOverlay(size: CGSize(width: screenWidth, height: basePreviewHeight))
                 }
 
                 // Pinch-to-zoom value overlay (back camera only)
@@ -181,35 +172,6 @@ struct CameraPreviewArea: View {
             bottomTrailingRadius: 0,
             topTrailingRadius: model.camera.cameraMode == .video ? videoModeCornerRadius : 0
         )
-    }
-
-    // MARK: - Unified Guidance Overlay
-
-    @ViewBuilder
-    private func unifiedGuidanceOverlay(size: CGSize) -> some View {
-        UnifiedGuidanceView(
-            message: unifiedGuidance.message,
-            rotationAngle: uiRotationAngle.degrees
-        )
-        .position(guidancePosition(in: size))
-        .animation(.easeInOut(duration: 0.3), value: uiRotationAngle)
-        .animation(.easeInOut(duration: 0.2), value: unifiedGuidance.message)
-    }
-
-    private func guidancePosition(in size: CGSize) -> CGPoint {
-        let landscapeMargin = min(60, max(40, size.width * 0.1))
-        let portraitMargin = min(140, max(80, size.height * 0.18))
-
-        switch devicePhysicalOrientation {
-        case .landscapeLeft:
-            return CGPoint(x: landscapeMargin, y: size.height / 2)
-        case .landscapeRight:
-            return CGPoint(x: size.width - landscapeMargin, y: size.height / 2)
-        case .portraitUpsideDown:
-            return CGPoint(x: size.width / 2, y: size.height - portraitMargin)
-        default:
-            return CGPoint(x: size.width / 2, y: portraitMargin)
-        }
     }
 
     // MARK: - Pinch-to-Zoom Gesture

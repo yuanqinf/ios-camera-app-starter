@@ -302,7 +302,7 @@ final class CameraManager: NSObject {
     private var lastManualFocusTime: Date?
     private let manualFocusCooldown: TimeInterval = 5.0  // 5 seconds cooldown
 
-    // Subject detector (for external access, used for angle guidance features)
+    // Subject detector (exposed so the view can receive its detections)
     let subjectDetector = SubjectDetector()
 
     // Subject lock service (for continuous tracking and focus)
