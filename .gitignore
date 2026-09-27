@@ -13,3 +13,6 @@ DerivedData/
 
 # macOS
 .DS_Store
+
+# Your signing values (see Config/Local.example.xcconfig)
+Config/Local.xcconfig

@@ -1,0 +1,13 @@
+//
+//  Signing.xcconfig
+//  CameraStarter
+//
+//  Who signs the app, and under what bundle identifier. Leave this file as
+//  it is: put your own values in Local.xcconfig, next to it, which git
+//  ignores. See Local.example.xcconfig.
+//
+
+DEVELOPMENT_TEAM =
+PRODUCT_BUNDLE_IDENTIFIER = com.example.CameraStarter
+
+#include? "Local.xcconfig"

@@ -1,0 +1,10 @@
+//
+//  Copy this file to Local.xcconfig and fill in your own values.
+//  Local.xcconfig is ignored by git, so they stay on your machine.
+//
+
+// Your team ID: Xcode > Settings > Accounts, or developer.apple.com/account
+DEVELOPMENT_TEAM = ABCDE12345
+
+// Any identifier you own, usually reverse-DNS
+PRODUCT_BUNDLE_IDENTIFIER = com.yourname.CameraStarter

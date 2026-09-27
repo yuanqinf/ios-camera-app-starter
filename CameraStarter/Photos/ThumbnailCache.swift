@@ -2,8 +2,8 @@
 //  ThumbnailCache.swift
 //  CameraStarter
 //
-//  Created by Claude on 11/27/25.
-//  Persistent cache for the first photo thumbnail
+//  Keeps the newest capture's thumbnail across launches, so the button
+//  shows it before the photo library has loaded.
 //
 
 import SwiftUI
