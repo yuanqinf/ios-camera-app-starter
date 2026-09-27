@@ -7,6 +7,15 @@ it, and start from a camera that already works.
 > **Status:** early. It runs on device, but the structure may still change
 > before 1.0.
 
+## Where it comes from
+
+This is the camera I built as the foundation of a pet camera app. Pets don't
+hold still, so it had to be quick to shoot, quick to focus, and able to follow
+a subject that won't stay put. Once it worked, the camera turned out to have
+nothing to do with pets, so I took out everything that did and opened up the
+rest. Subject tracking, which started out following cats and dogs, now finds
+people and faces too.
+
 ## Features
 
 **Capture**
