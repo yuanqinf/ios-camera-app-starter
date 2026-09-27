@@ -103,7 +103,7 @@ private struct PixelBufferBox: @unchecked Sendable {
 extension CVPixelBuffer: @unchecked @retroactive Sendable {}
 
 /// State for a single tracked subject (used between full detection cycles)
-private struct TrackedSubjectState {
+nonisolated private struct TrackedSubjectState {
     let id: UUID
     var trackRequest: VNTrackObjectRequest
     var lastTrackingConfidence: Float
@@ -352,24 +352,24 @@ private actor VisionPipeline {
         for var subject in trackedSubjects {
             do {
                 // Run lightweight tracking via stateful sequence handler
-                try await sequenceHandler.perform(
+                try sequenceHandler.perform(
                     [subject.trackRequest],
                     on: pixelBufferBox.buffer,
                     orientation: orientation
                 )
 
                 // Get updated observation
-                guard let updatedObservation = await subject.trackRequest.results?.first as? VNDetectedObjectObservation,
+                guard let updatedObservation = subject.trackRequest.results?.first as? VNDetectedObjectObservation,
                       updatedObservation.confidence > VNConfidence(trackingConfidenceThreshold) else {
                     // Tracker lost this subject — will trigger re-detection next frame
                     continue
                 }
 
                 // Create new track request for next frame using the updated observation (MainActor-isolated API)
-                await MainActor.run {
+                subject.trackRequest = await MainActor.run {
                     let newTrackRequest = VNTrackObjectRequest(detectedObjectObservation: updatedObservation)
                     newTrackRequest.trackingLevel = .fast
-                    subject.trackRequest = newTrackRequest
+                    return newTrackRequest
                 }
                 subject.lastTrackingConfidence = Float(updatedObservation.confidence)
 
@@ -622,9 +622,7 @@ class SubjectDetector: NSObject {
 
             guard let detectionResult = detectionResult else { return }
 
-            await MainActor.run {
-                self?.handleDetectionResult(detectionResult, pixelBuffer: pixelBufferBox.buffer)
-            }
+            await self?.handleDetectionResult(detectionResult, pixelBuffer: pixelBufferBox.buffer)
         }
     }
 

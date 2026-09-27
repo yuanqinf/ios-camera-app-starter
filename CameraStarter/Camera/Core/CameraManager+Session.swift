@@ -349,9 +349,10 @@ extension CameraManager {
 
         // Start macro condition timer (4x/sec instead of per-frame)
         macroCheckTimer?.invalidate()
+        // Scheduled from the main actor, so it fires on the main run loop
         macroCheckTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                guard let self = self, self.isRunning else { return }
+            MainActor.assumeIsolated {
+                guard let self, self.isRunning else { return }
                 self.checkMacroConditionPerFrame(lensPosition: self.currentLensPosition)
             }
         }

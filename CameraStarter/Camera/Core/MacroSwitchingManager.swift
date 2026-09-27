@@ -18,7 +18,7 @@ import UIKit
         // MARK: - Types
 
         /// Context needed for macro switching operations
-        struct SwitchContext: @unchecked Sendable {
+        nonisolated struct SwitchContext: @unchecked Sendable {
             let captureSession: AVCaptureSession
             let currentInput: AVCaptureDeviceInput?
             let videoOutput: AVCaptureVideoDataOutput?

@@ -35,26 +35,18 @@ final class CameraModel {
 
     private var isAlbumReady = false
 
-    /// The loops reading the camera's streams, cancelled with the model.
-    private var streamTasks: [Task<Void, Never>] = []
-
     init() {
         // Last session's thumbnail, so the button isn't empty while the
         // library loads.
         thumbnail = thumbnailCache.loadCachedThumbnail()
         thumbnailAssetID = thumbnailCache.getCachedAssetIdentifier()
 
-        streamTasks = [
-            Task { await receivePhotos() },
-            Task { await receiveDeferredPhotos() },
-            Task { await receiveVideos() },
-        ]
-    }
-
-    deinit {
-        for task in streamTasks {
-            task.cancel()
-        }
+        // One loop per stream, for the life of the app. Each holds the model
+        // while it waits, so there's no deinit to cancel them from; they end
+        // if the camera finishes its streams.
+        Task { await receivePhotos() }
+        Task { await receiveDeferredPhotos() }
+        Task { await receiveVideos() }
     }
 
     // MARK: - Album

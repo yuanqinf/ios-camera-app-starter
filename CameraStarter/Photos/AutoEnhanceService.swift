@@ -11,7 +11,10 @@ import UIKit
 import os.log
 
 /// Service for automatic image enhancement using Apple's CIImage auto-adjustment
-final class AutoEnhanceService {
+///
+/// Not tied to the main actor: it runs off it, on photos being saved. Safe to
+/// share across threads, as CIContext is.
+nonisolated final class AutoEnhanceService: @unchecked Sendable {
 
     // MARK: - Singleton
 
