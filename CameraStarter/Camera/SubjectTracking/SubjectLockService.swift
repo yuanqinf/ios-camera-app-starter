@@ -89,11 +89,6 @@ final class SubjectLockService {
     /// Focus point for camera AF system (updated smoothly)
     private(set) var focusPoint: CGPoint?
 
-    /// Whether tracking is stable
-    var isStable: Bool {
-        lockState == .stable
-    }
-
     /// Whether we have a locked subject
     var isLocked: Bool {
         lockState.isLocked
@@ -106,12 +101,6 @@ final class SubjectLockService {
 
     /// Called when focus point should be updated
     var onFocusPointUpdate: ((CGPoint) -> Void)?
-
-    /// Called when lock state changes (for UI updates)
-    var onLockStateChanged: ((SubjectLockState) -> Void)?
-
-    /// Called when stable state is achieved
-    var onStableStateAchieved: (() -> Void)?
 
     // MARK: - Configuration
 
@@ -222,24 +211,6 @@ final class SubjectLockService {
         transitionTo(.idle)
         focusPoint = nil
         logger.info("Subject lock released, returning to auto mode")
-    }
-
-    /// Release current lock but stay in manual mode (user can tap to select another)
-    func unlockKeepManualMode() {
-        lockedSubjectID = nil
-        trackedSubject = nil
-        trackingStartTime = nil
-        lastSeenTime = nil
-        positionHistory.removeAll()
-        recentPositions.removeAll()
-        stableStartTime = nil
-        kalmanFilter.reset()
-        smoothedWidth = 0
-        smoothedHeight = 0
-        // Keep isManualLock = true so auto-detection doesn't kick in
-        transitionTo(.idle)
-        focusPoint = nil
-        logger.info("Subject lock released, staying in manual mode")
     }
 
     /// Reset all state
@@ -410,7 +381,6 @@ final class SubjectLockService {
             if stableDuration >= stableThreshold {
                 if lockState != .stable {
                     transitionTo(.stable)
-                    onStableStateAchieved?()
                 }
             } else {
                 if lockState != .tracking {
@@ -515,8 +485,6 @@ final class SubjectLockService {
 
         // Haptic feedback for state changes
         provideHapticFeedback(from: oldState, to: newState)
-
-        onLockStateChanged?(newState)
     }
 
     /// Provide haptic feedback for state transitions

@@ -88,9 +88,4 @@ final class FlashManager {
     func setFlashMode(_ mode: FlashMode) {
         currentMode = mode
     }
-
-    /// Get icon name for current mode
-    func getCurrentIcon() -> String {
-        return currentMode.iconName
-    }
 }

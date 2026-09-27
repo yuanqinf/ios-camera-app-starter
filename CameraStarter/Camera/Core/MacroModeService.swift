@@ -76,12 +76,6 @@ final class MacroModeService {
         }
     }
 
-    /// Dismisses macro suggestion (called when user ignores the toast)
-    func dismissSuggestion() {
-        isMacroSuggested = false
-        isMacroManuallyDisabled = true
-    }
-
     /// Checks macro condition per frame (called from video delegate)
     /// - Parameters:
     ///   - lensPosition: Current lens position (0.0 = infinity, 1.0 = minimum focus)

@@ -44,9 +44,6 @@ final class CameraManager: NSObject {
     /// Whether camera is currently starting (to prevent concurrent start calls)
     private var isStarting = false
 
-    /// Latest pixel buffer from video data output (for frame capture)
-    var _latestPixelBuffer: CVPixelBuffer?
-
     // MARK: - Video Recording Properties
 
     /// Current camera mode (photo/video)
@@ -66,12 +63,6 @@ final class CameraManager: NSObject {
 
     /// Pending camera mode to restore after force reset
     private var pendingModeRestore: CameraMode?
-
-    /// Whether action mode is supported on current device
-    var isActionModeSupported: Bool {
-        guard let device = deviceInput?.device else { return false }
-        return device.activeFormat.isVideoStabilizationModeSupported(.cinematicExtendedEnhanced)
-    }
 
     /// Preview layer (for UI use)
     nonisolated(unsafe) let previewLayer: AVCaptureVideoPreviewLayer
@@ -1931,27 +1922,9 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
             // Skip processing if camera is stopped
             guard self.isRunning else { return }
 
-            // Store latest frame for live caption feature
-            self._latestPixelBuffer = pixelBuffer
-
             // Pass pixel buffer to subject detector (processes asynchronously internally)
             self.subjectDetector.detectSubjects(in: pixelBuffer, isFrontCamera: self.isFrontCamera)
         }
-    }
-}
-
-// MARK: - Frame Capture
-
-extension CameraManager {
-    /// Capture current camera frame as UIImage from the latest video data output buffer
-    func captureCurrentFrame() -> UIImage? {
-        guard let pixelBuffer = _latestPixelBuffer else { return nil }
-        let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
-        let context = CIContext()
-        guard let cgImage = context.createCGImage(ciImage, from: ciImage.extent) else { return nil }
-        // Video pixel buffers are always landscape; apply correct orientation
-        let orientation: UIImage.Orientation = isFrontCamera ? .leftMirrored : .right
-        return UIImage(cgImage: cgImage, scale: 1.0, orientation: orientation)
     }
 }
 

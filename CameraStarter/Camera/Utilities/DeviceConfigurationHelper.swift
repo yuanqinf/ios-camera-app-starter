@@ -56,13 +56,4 @@ enum DeviceConfigurationHelper {
         configureSafely(device) { $0.videoZoomFactor = clampedZoom }
     }
 
-    /// Set zoom factor with ramp animation
-    nonisolated static func setZoomAnimated(_ zoom: CGFloat, on device: AVCaptureDevice, rate: Float = 8.0) {
-        let clampedZoom = clampZoom(zoom, for: device)
-        configureSafely(device) {
-            $0.cancelVideoZoomRamp()
-            $0.ramp(toVideoZoomFactor: clampedZoom, withRate: rate)
-        }
-    }
-
 }

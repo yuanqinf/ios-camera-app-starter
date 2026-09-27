@@ -177,10 +177,6 @@ private actor VisionPipeline {
     /// Minimum tracking confidence before triggering re-detection
     private let trackingConfidenceThreshold: Float = 0.3
 
-    /// Debug counters
-    private(set) var trackingFrameCount: Int = 0
-    private(set) var detectionFrameCount: Int = 0
-
     init(minConfidenceThreshold: Float, minSubjectConfidenceThreshold: Float) {
         self.minConfidenceThreshold = minConfidenceThreshold
         self.minSubjectConfidenceThreshold = minSubjectConfidenceThreshold
@@ -226,7 +222,6 @@ private actor VisionPipeline {
         let orientation: CGImagePropertyOrientation = isFrontCamera ? .leftMirrored : .right
 
         if shouldRunFullDetection() {
-            detectionFrameCount += 1
             let result = await runFullDetection(
                 pixelBufferBox: pixelBufferBox,
                 orientation: orientation,
@@ -236,7 +231,6 @@ private actor VisionPipeline {
             )
             return result
         } else {
-            trackingFrameCount += 1
             let result = await runTracking(
                 pixelBufferBox: pixelBufferBox,
                 orientation: orientation,
@@ -533,7 +527,6 @@ class SubjectDetector: NSObject {
     // Subject detection stability control (iPhone style)
     @MainActor private var lastAllSubjectDetections: [SubjectDetectionResult] = []  // All detected subjects (for UI)
     @MainActor private var lastSubjectsForPortrait: [SubjectDetectionResult] = []  // Portrait-specific cache (independent longer grace period)
-    @MainActor private var primarySubjectID: UUID? = nil  // Primary subject ID (for UI identification)
     @MainActor private var subjectDetectionStableCount: Int = 0  // Number of consecutive subject detections
     private let stableThreshold: Int = 2  // Need 2 consecutive detections to show (~100ms, faster response)
     private let subjectMatchThreshold: CGFloat = 0.15  // Subject position matching threshold (15% screen distance)
@@ -546,12 +539,8 @@ class SubjectDetector: NSObject {
     @MainActor private var portraitSubjectLastSeenTime: Date = .distantPast
     private let portraitGraceDuration: TimeInterval = 3.0  // Portrait grace period: 3 seconds (Vision detection sometimes misses multiple frames)
 
-    // Used to detect subject position changes and trigger bounding box re-display
-    @MainActor private var lastDisplayedBoundingBox: CGRect? = nil
-
-    // Last detected subject position (to determine if refocus is needed)
-    @MainActor private var lastSubjectCenter: CGPoint?
-    @MainActor private var lastFocusPoint: CGPoint?  // Last actual focus trigger point
+    // Where focus was last sent, to refocus only once the subject has moved
+    @MainActor private var lastFocusPoint: CGPoint?
     private let refocusThreshold: CGFloat = 0.08  // Subject movement > 8% triggers refocus (faster response)
 
 
@@ -662,13 +651,11 @@ class SubjectDetector: NSObject {
             } else {
                 shouldFocus = true
             }
-            lastSubjectCenter = currentCenter
             if shouldFocus {
                 lastFocusPoint = currentCenter
                 onAutoFocus?(currentCenter)
             }
         } else {
-            lastSubjectCenter = nil
             lastFocusPoint = nil
         }
     }
@@ -714,25 +701,14 @@ class SubjectDetector: NSObject {
                 }
             }
 
-            // Update primary subject ID
-            primarySubjectID = currentPrimaryID
-
-            let currentBox = newSubject.boundingBox
-
             // Accumulate stability counter (for initial detection only)
             if subjectDetectionStableCount < stableThreshold {
                 subjectDetectionStableCount += 1
             }
 
-            // Need consecutive detections to confirm initial bounding box display
-            if subjectDetectionStableCount == stableThreshold {
-                lastDisplayedBoundingBox = currentBox
-                lastAllSubjectDetections = stableAllSubjects
-                onSubjectsDetected?(stableAllSubjects, currentPrimaryID)
-            }
-            // Once stable, always update bounding box position (continuous tracking)
-            else if subjectDetectionStableCount > stableThreshold {
-                lastDisplayedBoundingBox = currentBox
+            // Show boxes once detection has held for enough frames, then keep
+            // updating them every frame after
+            if subjectDetectionStableCount >= stableThreshold {
                 lastAllSubjectDetections = stableAllSubjects
                 onSubjectsDetected?(stableAllSubjects, currentPrimaryID)
             }
@@ -748,9 +724,7 @@ class SubjectDetector: NSObject {
 
                 // Reset state
                 subjectDetectionStableCount = 0
-                lastDisplayedBoundingBox = nil
                 lastAllSubjectDetections = []
-                primarySubjectID = nil
             }
         }
     }

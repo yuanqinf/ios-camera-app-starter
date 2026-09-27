@@ -95,12 +95,6 @@ final class CameraTimerManager {
         duration = duration.next
     }
 
-    /// Set specific timer duration
-    func setDuration(_ newDuration: TimerDuration) {
-        cancelCountdown()
-        duration = newDuration
-    }
-
     /// Start countdown timer
     /// - Parameter onCapture: Callback to execute when countdown completes
     func startCountdown(onCapture: @escaping () -> Void) {

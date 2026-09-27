@@ -88,7 +88,6 @@ extension Color {
 
     static let appPrimaryText = Color(uiColor: .label)
     static let appSecondaryText = Color(uiColor: .secondaryLabel)
-    static let appDivider = Color(uiColor: .separator)
 
     static let appSuccess = Color(uiColor: .systemGreen)
     static let appError = Color(uiColor: .systemRed)

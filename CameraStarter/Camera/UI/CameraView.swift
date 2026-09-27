@@ -39,9 +39,6 @@ struct CameraView: View {
     // Shutter feedback animation
     @State private var showShutterFlash = false
 
-    // Subject attention sound button animation
-    @State private var isSoundButtonPressed = false
-
     // Aspect ratio
     @State private var selectedAspectRatio: AspectRatio = .ratio4_3
 

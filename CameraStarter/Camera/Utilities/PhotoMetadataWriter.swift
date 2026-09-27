@@ -154,23 +154,5 @@ struct PhotoMetadataWriter {
 
         return gpsMetadata
     }
-
-    /// Verify GPS metadata in photo
-    static func verifyLocationMetadata(in imageData: Data) -> Bool {
-        guard let imageSource = CGImageSourceCreateWithData(imageData as CFData, nil),
-              let metadata = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) as? [String: Any],
-              let gpsDict = metadata[kCGImagePropertyGPSDictionary as String] as? [String: Any] else {
-            return false
-        }
-
-        let hasLatitude = gpsDict[kCGImagePropertyGPSLatitude as String] != nil
-        let hasLongitude = gpsDict[kCGImagePropertyGPSLongitude as String] != nil
-
-        if hasLatitude && hasLongitude {
-            return true
-        }
-
-        return false
-    }
 }
 
