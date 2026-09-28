@@ -1,3 +1,5 @@
+<img width="3840" height="2160" alt="CameraStarter-Launch-poster" src="https://github.com/user-attachments/assets/0a67fddf-3417-4c21-82d2-eea0ce30cfc7" />
+
 # ios-camera-app-starter
 
 A SwiftUI camera app for iOS 18 to build your own on: photo, video, Live
@@ -6,6 +8,8 @@ it, and start from a camera that already works.
 
 > **Status:** early. It runs on device, but the structure may still change
 > before 1.0.
+
+https://github.com/user-attachments/assets/07552aab-c64d-4718-ad13-9654143611c1
 
 ## Where it comes from
 
